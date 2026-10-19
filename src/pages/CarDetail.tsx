@@ -262,10 +262,14 @@ export default function CarDetail() {
               <CardTitle className="text-sm flex items-center gap-2"><Wrench className="w-4 h-4" /> Tâches / main-d'œuvre</CardTitle>
             </CardHeader>
             <div className="p-4">
-              <div className="flex gap-2 mb-3">
-                <Input label="Tâche" value={taskName} onChange={(e) => setTaskName(e.target.value)} placeholder="Ex. Vidange" className="flex-1 text-xs" />
-                <Input label="Prix (TND)" type="number" value={laborPrice} onChange={(e) => setLaborPrice(e.target.value)} className="w-32 text-xs" />
-                <Button size="sm" onClick={handleAddTask}><Plus className="w-4 h-4" /></Button>
+              <div className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 mb-3">
+                <div className="w-full sm:flex-1 sm:min-w-0">
+                  <Input label="Tâche" value={taskName} onChange={(e) => setTaskName(e.target.value)} placeholder="Ex. Vidange" className="w-full text-xs" />
+                </div>
+                <div className="w-1/2 sm:w-28">
+                  <Input label="Prix (TND)" type="number" value={laborPrice} onChange={(e) => setLaborPrice(e.target.value)} className="w-full text-xs" />
+                </div>
+                <Button size="sm" className="w-full sm:w-auto h-10 px-4 shrink-0" onClick={handleAddTask}><Plus className="w-4 h-4 mr-1 sm:mr-0" /> Ajouter</Button>
               </div>
               <div className="space-y-2">
                 {tasks.length ? tasks.map((task) => (
@@ -284,11 +288,19 @@ export default function CarDetail() {
               <CardTitle className="text-sm flex items-center gap-2"><FileText className="w-4 h-4" /> Pièces & fournitures</CardTitle>
             </CardHeader>
             <div className="p-4">
-              <div className="flex gap-2 mb-3">
-                <Input label="Pièce" value={partName} onChange={(e) => setPartName(e.target.value)} placeholder="Ex. Filtre à huile" className="flex-1 text-xs" />
-                <Input label="Qté" type="number" value={partQty} onChange={(e) => setPartQty(e.target.value)} className="w-20 text-xs" />
-                <Input label="Prix unitaire (TND)" type="number" value={partUnitPrice} onChange={(e) => setPartUnitPrice(e.target.value)} className="w-48 text-xs" />
-                <Button size="sm" onClick={handleAddPart}><Plus className="w-4 h-4" /></Button>
+              <div className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2 mb-3">
+                <div className="w-full sm:flex-1 sm:min-w-0">
+                  <Input label="Pièce" value={partName} onChange={(e) => setPartName(e.target.value)} placeholder="Ex. Filtre à huile" className="w-full text-xs" />
+                </div>
+                <div className="flex gap-2">
+                  <div className="w-1/3 sm:w-20">
+                    <Input label="Qté" type="number" value={partQty} onChange={(e) => setPartQty(e.target.value)} className="w-full text-xs" />
+                  </div>
+                  <div className="flex-1 sm:w-40 sm:shrink-0">
+                    <Input label="Prix unitaire (TND)" type="number" value={partUnitPrice} onChange={(e) => setPartUnitPrice(e.target.value)} className="w-full text-xs" />
+                  </div>
+                </div>
+                <Button size="sm" className="w-full sm:w-auto h-10 px-4 shrink-0" onClick={handleAddPart}><Plus className="w-4 h-4 mr-1 sm:mr-0" /> Ajouter</Button>
               </div>
               <div className="space-y-2">
                 {parts.length ? parts.map((p) => (
