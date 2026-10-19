@@ -431,10 +431,14 @@ export default function RegisterCar() {
                 </div>
               )}
               <div className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2">
-                <Input label="Tâche" placeholder="Ex. Vidange" value={taskDraft.name}
-                  onChange={(e) => setTaskDraft({ ...taskDraft, name: e.target.value })} className="w-full sm:flex-1" />
-                <Input label="Prix (TND)" type="number" placeholder="0" value={taskDraft.price}
-                  onChange={(e) => setTaskDraft({ ...taskDraft, price: e.target.value })} className="w-full sm:w-28" />
+                <div className="w-full sm:flex-1 sm:min-w-0">
+                  <Input label="Tâche" placeholder="Ex. Vidange" value={taskDraft.name}
+                    onChange={(e) => setTaskDraft({ ...taskDraft, name: e.target.value })} className="w-full" />
+                </div>
+                <div className="w-1/2 sm:w-28">
+                  <Input label="Prix (TND)" type="number" placeholder="0" value={taskDraft.price}
+                    onChange={(e) => setTaskDraft({ ...taskDraft, price: e.target.value })} className="w-full" />
+                </div>
                 <Button variant="primary" size="sm" className="w-full sm:w-auto h-10 px-4 shrink-0" onClick={() => {
                   if (!taskDraft.name.trim()) { toast.error('Écrivez d\'abord la tâche.'); return }
                   setTasks([...tasks, { name: taskDraft.name.trim(), price: taskDraft.price || '0' }])
@@ -461,13 +465,19 @@ export default function RegisterCar() {
                 </div>
               )}
               <div className="flex flex-col sm:flex-row sm:items-end gap-1 sm:gap-2">
-                <Input label="Pièce" placeholder="Ex. Filtre à huile" value={partDraft.name}
-                  onChange={(e) => setPartDraft({ ...partDraft, name: e.target.value })} className="w-full sm:flex-1" />
+                <div className="w-full sm:flex-1 sm:min-w-0">
+                  <Input label="Pièce" placeholder="Ex. Filtre à huile" value={partDraft.name}
+                    onChange={(e) => setPartDraft({ ...partDraft, name: e.target.value })} className="w-full" />
+                </div>
                 <div className="flex gap-2">
-                  <Input label="Qté" type="number" placeholder="1" value={partDraft.qty}
-                    onChange={(e) => setPartDraft({ ...partDraft, qty: e.target.value })} className="w-1/3 sm:w-20" />
-                  <Input label="Prix unitaire (TND)" type="number" placeholder="0" value={partDraft.price}
-                    onChange={(e) => setPartDraft({ ...partDraft, price: e.target.value })} className="flex-1 sm:w-36" />
+                  <div className="w-1/3 sm:w-20">
+                    <Input label="Qté" type="number" placeholder="1" value={partDraft.qty}
+                      onChange={(e) => setPartDraft({ ...partDraft, qty: e.target.value })} className="w-full" />
+                  </div>
+                  <div className="flex-1 sm:w-40 sm:shrink-0">
+                    <Input label="Prix unitaire (TND)" type="number" placeholder="0" value={partDraft.price}
+                      onChange={(e) => setPartDraft({ ...partDraft, price: e.target.value })} className="w-full" />
+                  </div>
                 </div>
                 <Button variant="primary" size="sm" className="w-full sm:w-auto h-10 px-4 shrink-0" onClick={() => {
                   if (!partDraft.name.trim()) { toast.error('Écrivez d\'abord la pièce.'); return }
