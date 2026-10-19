@@ -32,22 +32,18 @@ export default function Maintenance() {
   const t = useT()
   const [jobs, setJobs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
-  const [sort, setSort] = useState<'entry_date' | 'job_number' | 'status'>('entry_date')
 
   useEffect(() => {
     load()
-  }, [search, statusFilter, sort])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function load() {
     setLoading(true)
-    const statuses = statusFilter ? [statusFilter as any] : undefined
+    // Always: newest entry first
     const { data, error } = await getJobs({
-      status: statuses,
-      search: search || undefined,
-      sortBy: sort,
-      sortDir: 'asc',
+      sortBy: 'entry_date',
+      sortDir: 'desc',
     })
     if (error) { toast.error(error); setLoading(false); return }
     const maint = (data || []).filter((j: any) => isMaintenanceStatus(j.status))
@@ -71,22 +67,6 @@ export default function Maintenance() {
           <Button variant="ghost" size="sm" onClick={() => navigate('/register')}>
             <Car className="w-4 h-4 mr-1.5" /> {t('navRegister')}
           </Button>
-        </div>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-4 mb-6">
-        <div className="flex-1 min-w-[200px]">
-          <Select label={t('maintStatus')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="">Tous les statuts</option>
-            {MAINTENANCE_STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </Select>
-        </div>
-        <div className="flex-1 min-w-[180px]">
-          <Select label="Trier par" value={sort} onChange={(e) => setSort(e.target.value as any)}>
-            <option value="entry_date">Entrée (ancien → récent)</option>
-            <option value="job_number">N° réparation</option>
-            <option value="status">Statut</option>
-          </Select>
         </div>
       </div>
 
