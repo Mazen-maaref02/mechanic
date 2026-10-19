@@ -75,15 +75,6 @@ export default function Maintenance() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4 mb-6">
-        <div className="flex-1 min-w-[280px] relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('maintSearchPlaceholder')}
-            className="pl-9"
-          />
-        </div>
         <div className="flex-1 min-w-[200px]">
           <Select label={t('maintStatus')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             <option value="">Tous les statuts</option>
