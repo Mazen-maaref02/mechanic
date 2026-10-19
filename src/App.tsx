@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Toaster } from '@/components/ui/toaster'
 import { Layout } from '@/components/layout/Layout'
@@ -40,6 +41,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <SpeedInsights />
       <Toaster />
       <Routes>
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
