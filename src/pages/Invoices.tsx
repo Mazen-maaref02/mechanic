@@ -169,13 +169,62 @@ export default function Invoices() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2"><CreditCard className="w-4 h-4" /> Voitures non payées</CardTitle>
-          <p className="text-xs text-garage-text-muted">Reste à encaisser sur chaque réparation — pas besoin de créer une facture. Cliquez « Encaisser » quand le client paie.</p>
+          <p className="hidden sm:block text-xs text-garage-text-muted">Reste à encaisser sur chaque réparation — pas besoin de créer une facture. Cliquez « Encaisser » quand le client paie.</p>
         </CardHeader>
-        <div className="p-4">
+        <div className="p-3 sm:p-4">
           {unpaid.length === 0 ? (
             <div className="text-center py-6 text-garage-text-muted text-sm">Tout est payé — aucune voiture avec du reste à encaisser.</div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              {/* Phone: compact cards */}
+              <div className="md:hidden space-y-2">
+                {unpaid.map((j: any) => (
+                  <div key={j.id} className="border border-garage-border rounded-lg p-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs font-bold text-garage-orange" onClick={() => navigate(`/job/${j.id}`)} role="button">{j.job_number}</span>
+                      <Badge>{statusLabel(j.status)}</Badge>
+                    </div>
+                    <div className="mt-1 text-sm font-medium truncate">{j.customer_name}</div>
+                    <div className="text-xs text-garage-text-muted truncate">{j.vehicle} ({j.plate})</div>
+                    <div className="mt-1 flex items-center gap-2 text-xs">
+                      <span className="text-garage-text-muted">Total <b className="text-garage-text">{formatMoney(j.total)}</b></span>
+                      <span className="text-garage-text-muted">Payé {formatMoney(j.paid)}</span>
+                      <span className="text-garage-danger font-bold ml-auto">Reste {formatMoney(j.balance)}</span>
+                    </div>
+                    <div className="mt-2 flex gap-1">
+                      <input
+                        type="number"
+                        className="input flex-1 min-w-0 py-1.5 text-xs"
+                        placeholder={String(Math.round(j.balance * 100) / 100)}
+                        value={payAmt[j.id] ?? ''}
+                        onChange={(e) => setPayAmt({ ...payAmt, [j.id]: e.target.value })}
+                      />
+                      <select
+                        className="input w-16 py-1.5 text-xs shrink-0"
+                        value={payMethod[j.id] ?? 'cash'}
+                        onChange={(e) => setPayMethod({ ...payMethod, [j.id]: e.target.value })}
+                      >
+                        <option value="cash">Espèces</option>
+                        <option value="card">Carte</option>
+                        <option value="check">Chèque</option>
+                        <option value="bank_transfer">Virement</option>
+                      </select>
+                      <Button size="sm" variant="primary" className="shrink-0" onClick={() => handleQuickPay(j)}>Encaisser</Button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteEntry(j)}
+                        title="Supprimer cette réparation"
+                        className="text-garage-danger hover:bg-garage-danger-light rounded-lg p-1.5 shrink-0 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: table */}
+              <div className="hidden md:block overflow-x-auto">
               <table className="table">
                 <thead>
                   <tr>
@@ -233,7 +282,8 @@ export default function Invoices() {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+            </>
           )}
         </div>
       </Card>
