@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useToastMsg } from '@/components/ui/toaster'
 import {
-  getDashboardStats, getJobs, getProfile, getRevenueTimeline,
+  getDashboardStats, getJobs, getProfile, getRevenueDetails,
   statusLabel, isMaintenanceStatus,
 } from '@/lib/db'
 import { formatMoney, formatDateTime } from '@/lib/currency'
@@ -15,6 +15,12 @@ import { Car, Wrench, Clock, Truck, CreditCard, ArrowUpRight, Activity, Package 
 
 function cn(...classes: (string | boolean | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ')
+}
+
+function fmtDayTime(iso: string) {
+  const d = new Date(iso)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
 interface StatCardProps {
@@ -60,8 +66,7 @@ export default function Dashboard() {
     finished: 0, delivered: 0, unpaidInvoices: 0, revenueToday: 0, revenueMonth: 0,
   })
   const [recent, setRecent] = useState<any[]>([])
-  const [timeline, setTimeline] = useState<{ date: string; amount: number }[]>([])
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [revenue, setRevenue] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -90,10 +95,10 @@ export default function Dashboard() {
     }))
     setRecent(latest)
 
-    // Revenue timeline (last 14 days) and period total for the graph
-    const { data: tl, error: tlError } = await getRevenueTimeline(14)
-    if (tlError) { toast.error(tlError) }
-    setTimeline(tl || [])
+    // Encaissements réels : mini grand-livre (jour / semaine / derniers paiements)
+    const { data: rev, error: revError } = await getRevenueDetails()
+    if (revError) { toast.error(revError) }
+    setRevenue(rev)
 
     setLoading(false)
   }
@@ -103,15 +108,6 @@ export default function Dashboard() {
       <div className="text-garage-text-muted">{t('loading')}</div>
     </div>
   )
-
-  const selectedDay = selectedDate
-    ? (() => {
-        const d = timeline.find((x) => x.date === selectedDate)
-        if (!d) return null
-        const label = `${d.date.slice(8)}/${d.date.slice(5, 7)}/${d.date.slice(0, 4)}`
-        return { label, amount: d.amount }
-      })()
-    : null
 
   return (
     <div className="main p-6">
@@ -142,61 +138,70 @@ export default function Dashboard() {
           <CardTitle className="text-sm flex items-center gap-2">
             <ArrowUpRight className="w-4 h-4" /> Revenus
           </CardTitle>
-          <CardSubtitle>Paiements encaissés — 14 derniers jours</CardSubtitle>
+          <CardSubtitle>Paiements encaissés — données réelles, ce mois-ci</CardSubtitle>
         </CardHeader>
         <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Graph column */}
+          {/* Grand-livre : encaissement du jour + derniers paiements réels */}
           <div className="lg:col-span-2">
-            {selectedDay ? (
-              <div className="text-xs text-garage-text-muted mb-2 flex items-center gap-2">
-                <span>
-                  Le <span className="font-semibold text-garage-text">{selectedDay.label}</span> :
-                  <span className="font-bold text-garage-text ml-1">{formatMoney(selectedDay.amount)}</span>
-                </span>
-                <button
-                  onClick={() => setSelectedDate(null)}
-                  className="text-[11px] underline underline-offset-2 hover:text-garage-text"
-                >
-                  revoir le total
-                </button>
+            <div className="flex items-end justify-between gap-3 flex-wrap mb-4">
+              <div className="border-l-4 border-garage-orange pl-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-garage-text-muted">
+                  Encaissé aujourd'hui
+                </p>
+                <p className="mt-0.5 text-2xl sm:text-3xl font-bold tracking-tight text-garage-text tabular-nums leading-none">
+                  {formatMoney(revenue?.day?.total ?? 0)}
+                </p>
               </div>
-            ) : (
-              <div className="text-xs text-garage-text-muted mb-2">
-                Total sur la période : <span className="font-bold text-garage-text">{formatMoney(timeline.reduce((s, d) => s + d.amount, 0))}</span>
-              </div>
-            )}
-            <div className="flex items-end gap-1 h-40 border-b border-garage-border pb-1">
-              {timeline.map((d) => {
-                const max = Math.max(...timeline.map((x) => x.amount), 1)
-                const h = Math.round((d.amount / max) * 100)
-                const selected = d.date === selectedDate
-                return (
-                  <div
-                    key={d.date}
-                    className="flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
-                    title={`${d.date} — ${formatMoney(d.amount)}`}
-                    onClick={() => setSelectedDate(selected ? null : d.date)}
-                    role="button"
-                    aria-label={`${d.date} : ${formatMoney(d.amount)}`}
-                  >
-                    <div
-                      className={cn(
-                        'w-full rounded-t transition-all',
-                        selected
-                          ? 'bg-garage-orange ring-2 ring-garage-orange/40'
-                          : 'bg-garage-orange/70 hover:bg-garage-orange',
-                      )}
-                      style={{ height: `${h}%`, minHeight: '2px' }}
-                    />
-                  </div>
-                )
-              })}
+              <Link to="/revenue" className="text-xs text-garage-blue hover:underline underline-offset-2">
+                Voir le détail des revenus →
+              </Link>
             </div>
-            {selectedDay && (
-              <div className="text-[11px] text-garage-text-muted mt-1">
-                Cliquez sur une barre pour voir son revenu et sa date.
+
+            <div className="border border-garage-border rounded-lg overflow-hidden">
+              {/* En-tête de colonnes */}
+              <div className="grid grid-cols-[auto_1fr_auto] gap-x-3 px-3 py-2 border-b border-garage-border text-[10px] font-semibold uppercase tracking-[0.12em] text-garage-text-muted">
+                <span>Date</span>
+                <span>Véhicule</span>
+                <span className="text-right">Montant</span>
               </div>
-            )}
+              {/* Derniers encaissements (du mois, réels) */}
+              {(revenue?.month?.payments ?? []).slice(0, 5).length ? (
+                <div className="divide-y divide-garage-border">
+                  {revenue.month.payments.slice(0, 5).map((p: any) => (
+                    <Link
+                      key={p.id}
+                      to={p.jobId ? `/job/${p.jobId}` : '#'}
+                      onClick={(e) => !p.jobId && e.preventDefault()}
+                      className={cn(
+                        'grid grid-cols-[auto_1fr_auto] gap-x-3 px-3 py-2.5 items-baseline transition-colors duration-150',
+                        p.jobId && 'hover:bg-garage-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-garage-orange',
+                      )}
+                    >
+                      <span className="text-xs text-garage-text-muted tabular-nums whitespace-nowrap">{fmtDayTime(p.date)}</span>
+                      <span className="text-sm font-medium text-garage-text truncate">
+                        {p.jobNumber || <span className="font-normal text-gray-400">—</span>}
+                      </span>
+                      <span className="text-sm font-bold text-garage-text tabular-nums text-right whitespace-nowrap">
+                        {formatMoney(p.amount)}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="px-3 py-6 text-center text-sm text-garage-text-muted">
+                  Aucun encaissement ce mois-ci.
+                </div>
+              )}
+              {/* Total de la semaine clôt la feuille */}
+              <div className="px-3 py-2.5 border-t-2 border-garage-charcoal bg-garage-bg flex items-center justify-between gap-3">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-garage-text-muted">
+                  Total cette semaine
+                </span>
+                <span className="text-sm font-bold text-garage-text tabular-nums">
+                  {formatMoney(revenue?.week?.total ?? 0)}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Single history column */}
