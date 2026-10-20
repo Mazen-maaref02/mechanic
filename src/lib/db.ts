@@ -737,31 +737,101 @@ export async function getRevenueTimeline(daysBack = 14): Promise<DBResponse<{ da
 }
 
 /* ------------------------------------------------------------------ */
-/* Revenue summary (today / week / month / all-time, real payments)    */
+/* Revenue charts: série du mois / de la semaine / du jour (paiements) */
 /* ------------------------------------------------------------------ */
-export async function getRevenueSummary(): Promise<DBResponse<{ day: number; week: number; month: number; total: number }>> {
+export interface RevenuePoint { key: string; label: string; detail: string; amount: number }
+
+export async function getRevenueCharts(): Promise<DBResponse<{
+  month: { subtitle: string; total: number; points: RevenuePoint[] }
+  week: { subtitle: string; total: number; points: RevenuePoint[] }
+  day: { subtitle: string; total: number; points: RevenuePoint[] }
+}>> {
   if (!isSupabaseConfigured) return notConfigured()
   const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  const monthsFr = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+  const daysFr = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
+  const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+  const todayStart = new Date(y, m, now.getDate())
+  const monthStart = new Date(y, m, 1)
+
   const weekStart = new Date(todayStart)
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)) // lundi
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const { data, error } = await supabase.from('payments').select('amount, payment_date')
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekEnd.getDate() + 6)
+
+  // Série du mois : un point par jour (du 1er à la fin du mois)
+  const monthPoints: RevenuePoint[] = []
+  const monthDays = new Date(y, m + 1, 0).getDate()
+  for (let i = 1; i <= monthDays; i++) {
+    const d = new Date(y, m, i)
+    monthPoints.push({ key: iso(d), label: fmt(d), detail: `${daysFr[d.getDay()]} ${fmt(d)}/${y}`, amount: 0 })
+  }
+
+  // Série de la semaine : lundi → dimanche
+  const weekPoints: RevenuePoint[] = []
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + i)
+    weekPoints.push({ key: iso(d), label: `${daysFr[d.getDay()]} ${d.getDate()}`, detail: `${daysFr[d.getDay()]} ${fmt(d)}/${y}`, amount: 0 })
+  }
+
+  // Série du jour : un point par heure (0h → 23h)
+  const dayPoints: RevenuePoint[] = Array.from({ length: 24 }, (_, h) => ({
+    key: String(h), label: `${h}h`, detail: `Aujourd'hui à ${h}h`, amount: 0,
+  }))
+
+  // Les trois périodes sont bornées au mois en cours : une seule requête suffit
+  const { data, error } = await supabase
+    .from('payments')
+    .select('amount, payment_date')
+    .gte('payment_date', monthStart.toISOString())
   if (error) return { data: null, error: err(error) }
-  let today = 0
-  let week = 0
-  let month = 0
-  let total = 0
+
   ;((data as any[]) || []).forEach((p) => {
     const amt = Number(p.amount || 0)
     const d = new Date(p.payment_date)
-    total += amt
-    if (d >= todayStart) today += amt
-    if (d >= weekStart) week += amt
-    if (d >= monthStart) month += amt
+    const dIso = iso(d)
+    // mois
+    if (d >= monthStart) {
+      const pt = monthPoints[d.getDate() - 1]
+      if (pt && pt.key === dIso) pt.amount += amt
+    }
+    // semaine
+    if (d >= weekStart && d < new Date(weekEnd.getTime() + 86400000)) {
+      const pt = weekPoints[(d.getDay() + 6) % 7]
+      if (pt && pt.key === dIso) pt.amount += amt
+    }
+    // jour
+    if (d >= todayStart) {
+      const pt = dayPoints[d.getHours()]
+      if (pt) pt.amount += amt
+    }
   })
+
+  const sum = (pts: RevenuePoint[]) => round2(pts.reduce((s, p) => s + p.amount, 0))
+
   return {
-    data: { day: round2(today), week: round2(week), month: round2(month), total: round2(total) },
+    data: {
+      month: {
+        subtitle: `${monthsFr[m].charAt(0).toUpperCase()}${monthsFr[m].slice(1)} ${y}`,
+        total: sum(monthPoints),
+        points: monthPoints,
+      },
+      week: {
+        subtitle: `Semaine du ${fmt(weekStart)} au ${fmt(weekEnd)}`,
+        total: sum(weekPoints),
+        points: weekPoints,
+      },
+      day: {
+        subtitle: `Aujourd'hui — ${fmt(todayStart)}/${y}`,
+        total: sum(dayPoints),
+        points: dayPoints,
+      },
+    },
     error: null,
   }
 }

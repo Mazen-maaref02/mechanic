@@ -29,6 +29,7 @@ const translations: Record<Language, Record<string, string>> = {
     navFinished: 'Voitures terminées',
     navCustomers: 'Clients',
     navInvoices: 'Factures',
+    navRevenue: 'Revenus',
     navParts: 'Stock de pièces',
     navReports: 'Rapports',
     navSettings: 'Paramètres',

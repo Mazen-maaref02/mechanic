@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -14,8 +13,6 @@ import {
   Banknote,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n'
-import { getRevenueSummary } from '@/lib/db'
-import { formatMoney } from '@/lib/currency'
 
 interface NavItem {
   label: string
@@ -31,6 +28,7 @@ const navItems: NavItem[] = [
   { label: 'navFinished', href: '/finished', icon: Wrench },
   { label: 'navCustomers', href: '/customers', icon: Users },
   { label: 'navInvoices', href: '/invoices', icon: FileText },
+  { label: 'navRevenue', href: '/revenue', icon: Banknote },
   { label: 'navSettings', href: '/settings', icon: Settings, roles: ['administrator'] },
 ]
 
@@ -45,32 +43,12 @@ interface SidebarProps {
   onClose: () => void
 }
 
-type IncomePeriod = 'total' | 'month' | 'week' | 'day'
-
-const INCOME_CHOICES: { key: IncomePeriod; label: string }[] = [
-  { key: 'total', label: 'Total' },
-  { key: 'month', label: 'Mois' },
-  { key: 'week', label: 'Semaine' },
-  { key: 'day', label: "Aujourd'hui" },
-]
-
 export function Sidebar({ user, role, open, onClose }: SidebarProps) {
   const navigate = useNavigate()
   const t = useT()
-  const [income, setIncome] = useState<Record<IncomePeriod, number>>({ total: 0, month: 0, week: 0, day: 0 })
-  const [incomePeriod, setIncomePeriod] = useState<IncomePeriod>('total')
 
   const isActive = (href: string) => window.location.pathname === href
   const visibleItems = navItems.filter((item) => !item.roles || item.roles.includes(role as any))
-
-  useEffect(() => {
-    if (!user?.email) return
-    let cancelled = false
-    getRevenueSummary().then(({ data }) => {
-      if (data && !cancelled) setIncome({ total: data.total, month: data.month, week: data.week, day: data.day })
-    })
-    return () => { cancelled = true }
-  }, [user?.email])
 
   return (
     <>
@@ -109,35 +87,6 @@ export function Sidebar({ user, role, open, onClose }: SidebarProps) {
               )
             })}
           </nav>
-
-          {/* Revenus : total + périodes (mois / semaine / jour) */}
-          {user?.email && (
-            <div className="mt-6 px-3 py-3 rounded-xl bg-white/5 border border-white/10">
-              <p className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-wider mb-1">
-                <Banknote className="w-3.5 h-3.5" /> Revenus
-              </p>
-              <p className="text-lg font-bold text-white leading-tight truncate" title={formatMoney(income[incomePeriod])}>
-                {formatMoney(income[incomePeriod])}
-              </p>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px]">
-                {INCOME_CHOICES.map((c) => (
-                  <button
-                    key={c.key}
-                    onClick={() => setIncomePeriod(c.key)}
-                    aria-pressed={incomePeriod === c.key}
-                    className={cn(
-                      'transition-colors',
-                      incomePeriod === c.key
-                        ? 'text-garage-orange font-semibold underline underline-offset-2'
-                        : 'text-gray-400 hover:text-white',
-                    )}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <div className="mt-auto p-5 border-t border-white/10">
           <div className="mb-3">

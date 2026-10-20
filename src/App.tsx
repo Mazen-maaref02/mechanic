@@ -15,6 +15,7 @@ import InvoicePrint from '@/pages/InvoicePrint'
 import PartsStock from '@/pages/PartsStock'
 import Reports from '@/pages/Reports'
 import Settings from '@/pages/Settings'
+import Revenue from '@/pages/Revenue'
 
 function RequireAuth({ children }: { children?: React.ReactNode }) {
   const { loading, configured, isStaff } = useAuth()
@@ -57,6 +58,7 @@ export default function App() {
             <Route path="invoice/:id/print" element={<InvoicePrint />} />
             <Route path="parts" element={<PartsStock />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="revenue" element={<Revenue />} />
             <Route path="settings" element={<RequireAdmin><Settings /></RequireAdmin>} />
           </Route>
         </Route>
