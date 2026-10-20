@@ -57,7 +57,7 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-2">
-            <div className="w-12 h-12 rounded-xl bg-garage-orange/10 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-lg bg-garage-orange/10 flex items-center justify-center">
               <Lock className="w-6 h-6 text-garage-orange" />
             </div>
           </div>

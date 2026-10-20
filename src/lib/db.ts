@@ -737,100 +737,91 @@ export async function getRevenueTimeline(daysBack = 14): Promise<DBResponse<{ da
 }
 
 /* ------------------------------------------------------------------ */
-/* Revenue charts: série du mois / de la semaine / du jour (paiements) */
+/* Détail des revenus : mois / semaine / jour (paiements réels)        */
 /* ------------------------------------------------------------------ */
-export interface RevenuePoint { key: string; label: string; detail: string; amount: number }
+export interface RevenuePayment {
+  id: string
+  jobId: string | null
+  jobNumber: string | null
+  amount: number
+  method: 'cash' | 'transfer' | 'other'
+  date: string
+}
 
-export async function getRevenueCharts(): Promise<DBResponse<{
-  month: { subtitle: string; total: number; points: RevenuePoint[] }
-  week: { subtitle: string; total: number; points: RevenuePoint[] }
-  day: { subtitle: string; total: number; points: RevenuePoint[] }
+export interface RevenueDetailSeries {
+  subtitle: string
+  total: number
+  count: number
+  average: number
+  biggest: number
+  cash: number
+  transfer: number
+  payments: RevenuePayment[]
+}
+
+export async function getRevenueDetails(): Promise<DBResponse<{
+  month: RevenueDetailSeries
+  week: RevenueDetailSeries
+  day: RevenueDetailSeries
 }>> {
   if (!isSupabaseConfigured) return notConfigured()
   const now = new Date()
   const y = now.getFullYear()
   const m = now.getMonth()
   const monthsFr = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
-  const daysFr = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.']
   const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
   const todayStart = new Date(y, m, now.getDate())
   const monthStart = new Date(y, m, 1)
-
   const weekStart = new Date(todayStart)
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)) // lundi
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekEnd.getDate() + 6)
 
-  // Série du mois : un point par jour (du 1er à la fin du mois)
-  const monthPoints: RevenuePoint[] = []
-  const monthDays = new Date(y, m + 1, 0).getDate()
-  for (let i = 1; i <= monthDays; i++) {
-    const d = new Date(y, m, i)
-    monthPoints.push({ key: iso(d), label: fmt(d), detail: `${daysFr[d.getDay()]} ${fmt(d)}/${y}`, amount: 0 })
-  }
-
-  // Série de la semaine : lundi → dimanche
-  const weekPoints: RevenuePoint[] = []
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + i)
-    weekPoints.push({ key: iso(d), label: `${daysFr[d.getDay()]} ${d.getDate()}`, detail: `${daysFr[d.getDay()]} ${fmt(d)}/${y}`, amount: 0 })
-  }
-
-  // Série du jour : un point par heure (0h → 23h)
-  const dayPoints: RevenuePoint[] = Array.from({ length: 24 }, (_, h) => ({
-    key: String(h), label: `${h}h`, detail: `Aujourd'hui à ${h}h`, amount: 0,
-  }))
-
   // Les trois périodes sont bornées au mois en cours : une seule requête suffit
   const { data, error } = await supabase
     .from('payments')
-    .select('amount, payment_date')
+    .select('id, amount, payment_method, payment_date, repair_jobs(id, job_number)')
     .gte('payment_date', monthStart.toISOString())
+    .order('payment_date', { ascending: false })
   if (error) return { data: null, error: err(error) }
 
-  ;((data as any[]) || []).forEach((p) => {
-    const amt = Number(p.amount || 0)
-    const d = new Date(p.payment_date)
-    const dIso = iso(d)
-    // mois
-    if (d >= monthStart) {
-      const pt = monthPoints[d.getDate() - 1]
-      if (pt && pt.key === dIso) pt.amount += amt
-    }
-    // semaine
-    if (d >= weekStart && d < new Date(weekEnd.getTime() + 86400000)) {
-      const pt = weekPoints[(d.getDay() + 6) % 7]
-      if (pt && pt.key === dIso) pt.amount += amt
-    }
-    // jour
-    if (d >= todayStart) {
-      const pt = dayPoints[d.getHours()]
-      if (pt) pt.amount += amt
-    }
-  })
+  const all = ((data as any[]) || []).map((p) => ({
+    id: p.id as string,
+    jobId: p.repair_jobs?.id ?? null,
+    jobNumber: p.repair_jobs?.job_number ?? null,
+    amount: Number(p.amount || 0),
+    method: (p.payment_method || 'cash') as RevenuePayment['method'],
+    date: p.payment_date as string,
+  }))
 
-  const sum = (pts: RevenuePoint[]) => round2(pts.reduce((s, p) => s + p.amount, 0))
+  const build = (
+    from: Date,
+    to: Date | null,
+    subtitle: string,
+  ): RevenueDetailSeries => {
+    const list = all.filter((p) => {
+      const d = new Date(p.date)
+      return d >= from && (!to || d < to)
+    })
+    const total = round2(list.reduce((s, p) => s + p.amount, 0))
+    return {
+      subtitle,
+      total,
+      count: list.length,
+      average: list.length ? round2(total / list.length) : 0,
+      biggest: list.length ? round2(Math.max(...list.map((p) => p.amount))) : 0,
+      cash: round2(list.filter((p) => p.method === 'cash').reduce((s, p) => s + p.amount, 0)),
+      transfer: round2(list.filter((p) => p.method === 'transfer').reduce((s, p) => s + p.amount, 0)),
+      payments: list,
+    }
+  }
 
   return {
     data: {
-      month: {
-        subtitle: `${monthsFr[m].charAt(0).toUpperCase()}${monthsFr[m].slice(1)} ${y}`,
-        total: sum(monthPoints),
-        points: monthPoints,
-      },
-      week: {
-        subtitle: `Semaine du ${fmt(weekStart)} au ${fmt(weekEnd)}`,
-        total: sum(weekPoints),
-        points: weekPoints,
-      },
-      day: {
-        subtitle: `Aujourd'hui — ${fmt(todayStart)}/${y}`,
-        total: sum(dayPoints),
-        points: dayPoints,
-      },
+      month: build(monthStart, null, `${monthsFr[m].charAt(0).toUpperCase()}${monthsFr[m].slice(1)} ${y}`),
+      week: build(weekStart, new Date(weekEnd.getTime() + 86400000), `Semaine du ${fmt(weekStart)} au ${fmt(weekEnd)}`),
+      day: build(todayStart, null, `Aujourd'hui — ${fmt(todayStart)}/${y}`),
     },
     error: null,
   }

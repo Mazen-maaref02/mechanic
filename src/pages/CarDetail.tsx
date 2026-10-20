@@ -187,7 +187,7 @@ export default function CarDetail() {
             </div>
           </div>
           <div className="flex gap-3 w-full lg:w-auto">
-            <Button size="sm" variant="ghost" onClick={() => handleMarkFinished()} disabled={job.status === 'finished' || job.status === 'delivered'}>
+            <Button size="sm" variant="primary" onClick={() => handleMarkFinished()} disabled={job.status === 'finished' || job.status === 'delivered'}>
               <CheckCircle2 className="w-4 h-4 mr-2" /> {t('detailMarkFinished')}
             </Button>
             <Button size="sm" variant="secondary" onClick={() => navigate(`/invoice/new?job=${job.id}`)}><FileText className="w-4 h-4 mr-2" /> Facture</Button>
@@ -330,7 +330,10 @@ export default function CarDetail() {
               <div className="flex justify-between text-sm"><span>Remise</span><span>- {formatMoney(totals.discount)}</span></div>
               <div className="flex justify-between font-semibold border-t border-garage-border pt-2"><span>Total</span><span>{formatMoney(totals.total)}</span></div>
               <div className="flex justify-between text-sm"><span>Payé</span><span>{formatMoney(totals.paid)}</span></div>
-              <div className="flex justify-between font-bold text-garage-orange"><span>Reste à payer</span><span>{formatMoney(totals.balance)}</span></div>
+              <div className={`flex justify-between items-baseline border-t border-garage-border pt-3 ${totals.balance > 0.009 ? 'text-garage-orange' : 'text-green-600'}`}>
+                <span className="font-semibold">{totals.balance > 0.009 ? 'Reste à payer' : 'Solde réglé'}</span>
+                <span className="text-lg font-bold">{formatMoney(totals.balance)}</span>
+              </div>
               <div className="pt-3 border-t border-garage-border">
                 <Input label="Montant payé (TND)" type="number" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} className="text-xs" />
                 <Select label="Mode" value={payMethod} onChange={(e) => setPayMethod(e.target.value as any)}>

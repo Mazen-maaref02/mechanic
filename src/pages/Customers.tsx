@@ -124,7 +124,7 @@ export default function Customers() {
               </div>
               <div className="border-t border-garage-border bg-gray-50 px-4 py-3 flex justify-between">
                 <span className="text-xs text-garage-text-muted">Voir les détails</span>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <ChevronRight className="w-4 h-4 text-garage-text-muted" />
               </div>
             </Card>
           ))}

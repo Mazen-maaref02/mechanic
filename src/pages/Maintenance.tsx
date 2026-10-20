@@ -64,7 +64,7 @@ export default function Maintenance() {
           <p className="text-garage-text-muted text-sm">{t('maintSubtitle')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/register')}>
+          <Button variant="primary" size="sm" onClick={() => navigate('/register')}>
             <Car className="w-4 h-4 mr-1.5" /> {t('navRegister')}
           </Button>
         </div>
@@ -105,15 +105,15 @@ export default function Maintenance() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-garage-text-muted">
                   <div>
-                    <div className="text-gray-400">Mécanicien</div>
+                    <div className="text-garage-text-muted">Mécanicien</div>
                     <div>{job.assigned_mechanic || '—'}</div>
                   </div>
                   <div>
-                    <div className="text-gray-400">Entrée</div>
+                    <div className="text-garage-text-muted">Entrée</div>
                     <div>{formatDateTime(job.entry_date)}</div>
                   </div>
                   <div>
-                    <div className="text-gray-400">Fin prévue</div>
+                    <div className="text-garage-text-muted">Fin prévue</div>
                     <div>{job.expected_completion_date ? formatDateTime(job.expected_completion_date) : '—'}</div>
                   </div>
                 </div>
@@ -121,7 +121,7 @@ export default function Maintenance() {
               <div className="border-t border-garage-border bg-gray-50 px-4 py-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-garage-text-muted">Ouvrir le détail</span>
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                  <ChevronRight className="w-4 h-4 text-garage-text-muted" />
                 </div>
               </div>
             </Card>
