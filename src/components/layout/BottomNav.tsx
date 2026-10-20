@@ -26,7 +26,7 @@ export function BottomNav() {
             onClick={() => navigate(tab.href)}
             className={
               'flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[10px] font-medium transition-colors min-h-[52px]' +
-              (isActive ? ' text-garage-orange' : ' text-gray-500 active:text-garage-orange')
+              (isActive ? ' text-garage-orange' : ' text-garage-text-muted active:text-garage-orange')
             }
             aria-current={isActive ? 'page' : undefined}
           >

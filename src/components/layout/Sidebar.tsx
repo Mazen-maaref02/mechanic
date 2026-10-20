@@ -13,6 +13,7 @@ import {
   Banknote,
 } from 'lucide-react'
 import { useT } from '@/lib/i18n'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 interface NavItem {
   label: string
@@ -90,13 +91,14 @@ export function Sidebar({ user, role, open, onClose }: SidebarProps) {
         </div>
         <div className="mt-auto p-5 border-t border-white/10">
           <div className="mb-3">
-            <p className="text-xs text-gray-400 uppercase tracking-wider mb-1">Compte</p>
+            <p className="text-xs text-white/50 uppercase tracking-wider mb-1">Compte</p>
             <p className="text-sm text-white truncate">{user?.full_name || user?.email || 'Utilisateur'}</p>
-            <p className="text-xs text-gray-500 truncate">{role || '—'}</p>
+            <p className="text-xs text-white/50 truncate">{role || '—'}</p>
           </div>
+          <ThemeToggle variant="labelled" />
           <button
             onClick={() => navigate('/login')}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg text-garage-text-inverse hover:bg-garage-charcoal-light transition-colors border border-white/10 bg-white/5"
+            className="mt-2 w-full flex items-center gap-3 px-4 py-3 text-sm rounded-lg text-garage-text-inverse hover:bg-garage-charcoal-light transition-colors border border-white/10 bg-white/5"
           >
             <LogOut className="w-4 h-4" />
             <span>{t('logout')}</span>

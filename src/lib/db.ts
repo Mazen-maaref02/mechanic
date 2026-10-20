@@ -711,6 +711,74 @@ export async function getDashboardStats(): Promise<DBResponse<DashboardStats>> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Dashboard : widgets complémentaires (données réelles uniquement)    */
+/* ------------------------------------------------------------------ */
+
+/** Pièces au niveau du seuil (quantity <= min_stock), les plus critiques d'abord */
+export async function getDashboardStockAlerts(): Promise<DBResponse<SparePart[]>> {
+  if (!isSupabaseConfigured) return { data: [], error: null }
+  const { data, error } = await supabase
+    .from('spare_parts')
+    .select('id, name, reference, quantity, min_stock')
+    .order('quantity', { ascending: true })
+  if (error) return { data: null, error: err(error) }
+  const alerts = ((data as any[]) ?? [])
+    .filter((p) => Number(p.min_stock) > 0 && Number(p.quantity) <= Number(p.min_stock))
+    .slice(0, 6)
+  return { data: alerts as SparePart[], error: null }
+}
+
+export interface DashboardDelivery {
+  id: string
+  jobNumber: string
+  vehicle: string
+  plate: string
+  customerName: string
+  customerPhone: string
+  total: number
+  balance: number
+  deliveredAt: string
+}
+
+/** Livraisons du jour : dossiers passés au statut « livré » aujourd'hui */
+export async function getDashboardDeliveries(): Promise<DBResponse<DashboardDelivery[]>> {
+  if (!isSupabaseConfigured) return { data: [], error: null }
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const { data, error } = await supabase
+    .from('repair_jobs')
+    .select(`
+      id, job_number, updated_at, amount_paid, additional_costs, discount,
+      customers ( full_name, phone ),
+      vehicles ( brand, model, license_plate ),
+      repair_tasks ( labor_price ),
+      repair_parts ( quantity, unit_price )
+    `)
+    .eq('status', 'delivered')
+    .gte('updated_at', todayStart.toISOString())
+    .order('updated_at', { ascending: false })
+    .limit(10)
+  if (error) return { data: null, error: err(error) }
+  const list = ((data as any[]) ?? []).map((j) => {
+    const labor = (j.repair_tasks || []).reduce((s: number, t: any) => s + Number(t.labor_price || 0), 0)
+    const parts = (j.repair_parts || []).reduce((s: number, p: any) => s + Number(p.quantity || 0) * Number(p.unit_price || 0), 0)
+    const total = Math.max(0, labor + parts + Number(j.additional_costs || 0) - Number(j.discount || 0))
+    return {
+      id: j.id,
+      jobNumber: j.job_number,
+      vehicle: `${j.vehicles?.brand || ''} ${j.vehicles?.model || ''}`.trim() || '—',
+      plate: j.vehicles?.license_plate || '—',
+      customerName: j.customers?.full_name || '—',
+      customerPhone: j.customers?.phone || '',
+      total,
+      balance: Math.max(0, total - Number(j.amount_paid || 0)),
+      deliveredAt: j.updated_at,
+    }
+  })
+  return { data: list, error: null }
+}
+
+/* ------------------------------------------------------------------ */
 /* Revenue timeline (last N days, from real payments)                  */
 /* ------------------------------------------------------------------ */
 export async function getRevenueTimeline(daysBack = 14): Promise<DBResponse<{ date: string; amount: number }[]>> {

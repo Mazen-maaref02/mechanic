@@ -1,32 +1,108 @@
 @import "tailwindcss";
 
-@theme {
+/* Dark mode via a .dark class on <html> (toggled by the theme switch) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ------------------------------------------------------------------ */
+/* Theme values — two palettes over the same semantic slots            */
+/* light : GaragePro classique (canvas clair, orange atelier)          */
+/* dark  : "Precision Dark" (canvas slate nuit, ambre)                  */
+/* ------------------------------------------------------------------ */
+:root {
+  --gb-bg: #f7f8fa;
+  --gb-surface: #ffffff;
+  --gb-subtle: #f2f4f7;
+  --gb-border: #e2e5e9;
+  --gb-text: #22262a;
+  --gb-muted: #667085;
+
+  --gb-primary: #ea7c23;
+  --gb-primary-hover: #d46a1c;
+  --gb-on-primary: #ffffff;
+  --gb-primary-soft: rgba(234, 124, 35, 0.12);
+
+  --gb-sidebar: #16181b;
+  --gb-sidebar-hover: #1f2327;
+
+  --gb-success: #15803d;
+  --gb-success-soft: rgba(21, 128, 61, 0.10);
+  --gb-warning: #b45309;
+  --gb-warning-soft: rgba(180, 83, 9, 0.10);
+  --gb-danger: #b91c1c;
+  --gb-danger-soft: rgba(185, 28, 28, 0.10);
+  --gb-info: #1d6f9b;
+  --gb-info-soft: rgba(29, 111, 155, 0.10);
+  --gb-purple: #7c3aed;
+  --gb-purple-soft: rgba(124, 58, 237, 0.10);
+
+  --gb-scrollbar: #cbd2dc;
+  color-scheme: light;
+}
+
+.dark {
+  --gb-bg: #0b1326;
+  --gb-surface: #131b2e;
+  --gb-subtle: #1b2338;
+  --gb-border: #2d3449;
+  --gb-text: #dae2fd;
+  --gb-muted: #8e9ab5;
+
+  --gb-primary: #f59e0b;
+  --gb-primary-hover: #fbbf24;
+  --gb-on-primary: #472a00;
+  --gb-primary-soft: rgba(245, 158, 11, 0.15);
+
+  --gb-sidebar: #060e20;
+  --gb-sidebar-hover: #131b2e;
+
+  --gb-success: #34d399;
+  --gb-success-soft: rgba(52, 211, 153, 0.12);
+  --gb-warning: #fbbf24;
+  --gb-warning-soft: rgba(251, 191, 36, 0.12);
+  --gb-danger: #f87171;
+  --gb-danger-soft: rgba(248, 113, 113, 0.12);
+  --gb-info: #6cb6ff;
+  --gb-info-soft: rgba(108, 182, 255, 0.12);
+  --gb-purple: #c4a5ff;
+  --gb-purple-soft: rgba(196, 165, 255, 0.12);
+
+  --gb-scrollbar: #2d3449;
+  color-scheme: dark;
+}
+
+@theme inline {
   /* ---------- GaragePro brand ---------- */
-  --color-garage-charcoal: #16181b;
-  --color-garage-charcoal-light: #1f2327;
-  --color-garage-orange: #ea7c23;
-  --color-garage-orange-hover: #d46a1c;
-  --color-garage-orange-light: rgba(234, 124, 35, 0.12);
-  --color-garage-blue: #1d6f9b;
-  --color-garage-blue-light: rgba(29, 111, 155, 0.10);
+  --color-garage-orange: var(--gb-primary);
+  --color-garage-orange-hover: var(--gb-primary-hover);
+  --color-garage-orange-light: var(--gb-primary-soft);
+  --color-garage-on-primary: var(--gb-on-primary);
+
+  --color-garage-charcoal: var(--gb-sidebar);
+  --color-garage-charcoal-light: var(--gb-sidebar-hover);
+  --color-garage-blue: var(--gb-info);
+  --color-garage-blue-light: var(--gb-info-soft);
 
   /* neutral surface */
-  --color-garage-bg: #f7f8fa;
-  --color-garage-surface: #ffffff;
-  --color-garage-border: #e2e5e9;
-  --color-garage-text: #22262a;
-  --color-garage-text-muted: #667085;
+  --color-garage-bg: var(--gb-bg);
+  --color-garage-surface: var(--gb-surface);
+  --color-garage-subtle: var(--gb-subtle);
+  --color-garage-border: var(--gb-border);
+  --color-garage-text: var(--gb-text);
+  --color-garage-text-muted: var(--gb-muted);
   --color-garage-text-inverse: #ffffff;
+  --color-garage-scrollbar: var(--gb-scrollbar);
 
   /* status semantics */
-  --color-garage-success: #15803d;
-  --color-garage-success-light: rgba(21, 128, 61, 0.10);
-  --color-garage-warning: #b45309;
-  --color-garage-warning-light: rgba(180, 83, 9, 0.10);
-  --color-garage-danger: #b91c1c;
-  --color-garage-danger-light: rgba(185, 28, 28, 0.10);
-  --color-garage-info: #1d6f9b;
-  --color-garage-info-light: rgba(29, 111, 155, 0.10);
+  --color-garage-success: var(--gb-success);
+  --color-garage-success-light: var(--gb-success-soft);
+  --color-garage-warning: var(--gb-warning);
+  --color-garage-warning-light: var(--gb-warning-soft);
+  --color-garage-danger: var(--gb-danger);
+  --color-garage-danger-light: var(--gb-danger-soft);
+  --color-garage-info: var(--gb-info);
+  --color-garage-info-light: var(--gb-info-soft);
+  --color-garage-purple: var(--gb-purple);
+  --color-garage-purple-light: var(--gb-purple-soft);
 
   /* radius */
   --radius-md: 10px;
@@ -37,6 +113,12 @@
   --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.04);
   --shadow-card-hover: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.03);
   --shadow-sidebar: 0 4px 6px -1px rgb(0 0 0 / 0.10);
+}
+
+.dark {
+  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.35);
+  --shadow-card-hover: 0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.35);
+  --shadow-sidebar: 0 4px 6px -1px rgb(0 0 0 / 0.35);
 }
 
 /* ---------- Base ---------- */
@@ -56,7 +138,7 @@ body {
 
 /* Bottom tab bar for phones (hidden from md up) */
 @utility bottom-nav {
-  @apply fixed bottom-0 left-0 right-0 z-40 flex md:hidden bg-white/95 backdrop-blur border-t border-garage-border;
+  @apply fixed bottom-0 left-0 right-0 z-40 flex md:hidden bg-garage-surface/95 backdrop-blur border-t border-garage-border;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
 }
@@ -64,19 +146,20 @@ body {
 @utility btn {
   @apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-garage-orange focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
 }
-@utility btn-primary { @apply btn bg-garage-orange text-white px-4 py-2.5 text-sm shadow-sm hover:bg-garage-orange-hover active:scale-95; }
-@utility btn-secondary { @apply btn bg-white border border-garage-border text-garage-text px-4 py-2.5 text-sm shadow-sm hover:bg-gray-50 active:scale-95; }
-@utility btn-ghost { @apply btn text-garage-text-muted hover:bg-gray-100 hover:text-garage-text px-3 py-2 text-sm; }
-@utility btn-danger { @apply btn bg-garage-danger text-white px-4 py-2.5 text-sm shadow-sm hover:bg-red-700 active:scale-95; }
+.dark .btn:focus-visible { --tw-ring-offset-color: var(--gb-bg); }
+@utility btn-primary { @apply btn bg-garage-orange text-garage-on-primary px-4 py-2.5 text-sm shadow-sm hover:bg-garage-orange-hover active:scale-95; }
+@utility btn-secondary { @apply btn bg-garage-surface border border-garage-border text-garage-text px-4 py-2.5 text-sm shadow-sm hover:bg-garage-subtle active:scale-95; }
+@utility btn-ghost { @apply btn text-garage-text-muted hover:bg-garage-subtle hover:text-garage-text px-3 py-2 text-sm; }
+@utility btn-danger { @apply btn bg-garage-danger text-white px-4 py-2.5 text-sm shadow-sm hover:opacity-90 active:scale-95; }
 @utility btn-sm { @apply btn px-3 py-1.5 text-xs; }
-@utility btn-icon { @apply btn p-2 text-garage-text-muted hover:bg-gray-100 hover:text-garage-text rounded-lg; }
+@utility btn-icon { @apply btn p-2 text-garage-text-muted hover:bg-garage-subtle hover:text-garage-text rounded-lg; }
 
 @utility input {
-  @apply block w-full rounded-lg border border-garage-border bg-white text-garage-text px-4 py-2.5 text-sm shadow-sm focus:ring-2 focus:ring-garage-orange/50 focus:border-garage-orange outline-none transition-colors disabled:bg-gray-50 disabled:text-gray-400;
+  @apply block w-full rounded-lg border border-garage-border bg-garage-surface text-garage-text px-4 py-2.5 text-sm shadow-sm focus:ring-2 focus:ring-garage-orange/50 focus:border-garage-orange outline-none transition-colors disabled:bg-garage-subtle disabled:text-garage-text-muted;
 }
 @utility textarea { @apply input min-h-[100px] resize-y; }
 
-@utility card { @apply rounded-lg border border-garage-border bg-white shadow-card p-6 transition-shadow hover:shadow-card-hover; }
+@utility card { @apply rounded-lg border border-garage-border bg-garage-surface shadow-card p-6 transition-shadow hover:shadow-card-hover; }
 @utility card-header { @apply mb-5 flex items-center gap-3; }
 @utility card-title { @apply text-lg font-semibold text-garage-text; }
 @utility card-subtitle { @apply text-sm text-garage-text-muted; }
@@ -87,18 +170,18 @@ body {
 @utility table { @apply w-full text-sm border-collapse; }
 
 @utility empty-state { @apply flex flex-col items-center justify-center py-20 text-center; }
-@utility empty-state-icon { @apply w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 mb-4; }
+@utility empty-state-icon { @apply w-16 h-16 rounded-full bg-garage-subtle flex items-center justify-center text-garage-text-muted mb-4; }
 
 /* ---------- Status semantics (used via clsx in components) ---------- */
 .status-received { @apply badge-status text-garage-info border-garage-info/20 bg-garage-info/10; }
 .status-awaiting-diagnosis { @apply badge-status text-garage-warning border-garage-warning/20 bg-garage-warning/10; }
 .status-awaiting-approval { @apply badge-status text-garage-warning border-garage-warning/20 bg-garage-warning/10; }
-.status-awaiting-parts { @apply badge-status text-gray-700 border-gray-200 bg-gray-50; }
+.status-awaiting-parts { @apply badge-status text-garage-text-muted border-garage-border bg-garage-subtle; }
 .status-under-repair { @apply badge-status text-garage-blue border-garage-blue/20 bg-garage-blue/10; }
-.status-testing { @apply badge-status text-purple-700 border-purple-100 bg-purple-50; }
+.status-testing { @apply badge-status text-garage-purple border-garage-purple/20 bg-garage-purple/10; }
 .status-finished { @apply badge-status text-garage-success border-garage-success/20 bg-garage-success/10; }
-.status-delivered { @apply badge-status text-gray-700 border-gray-200 bg-gray-50; }
-.priority-normal { @apply badge text-gray-700 border-gray-200 bg-gray-50; }
+.status-delivered { @apply badge-status text-garage-text-muted border-garage-border bg-garage-subtle; }
+.priority-normal { @apply badge text-garage-text-muted border-garage-border bg-garage-subtle; }
 .priority-urgent { @apply badge text-garage-warning border-garage-warning/20 bg-garage-warning/10; }
 .priority-very-urgent { @apply badge text-garage-danger border-garage-danger/20 bg-garage-danger/10; }
 
@@ -125,12 +208,19 @@ body {
 /* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar { @apply w-3 h-3; }
 ::-webkit-scrollbar-track { @apply bg-transparent; }
-::-webkit-scrollbar-thumb { @apply bg-gray-300 rounded-full; }
-::-webkit-scrollbar-thumb:hover { @apply bg-gray-400; }
+::-webkit-scrollbar-thumb { @apply bg-garage-scrollbar rounded-full; }
 
-/* ---------- Print ---------- */
+/* ---------- Print (always light: black ink on white paper) ---------- */
 @media print {
   .no-print { display: none !important; }
+  :root, .dark {
+    --gb-bg: #ffffff;
+    --gb-surface: #ffffff;
+    --gb-subtle: #f2f4f7;
+    --gb-border: #e2e5e9;
+    --gb-text: #000000;
+    --gb-muted: #444444;
+  }
   body { @apply bg-white text-black; }
   .card { @apply shadow-none border-transparent; }
 }
