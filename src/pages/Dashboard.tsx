@@ -179,7 +179,7 @@ export default function Dashboard() {
                     >
                       <span className="text-xs text-garage-text-muted tabular-nums whitespace-nowrap">{fmtDayTime(p.date)}</span>
                       <span className="text-sm font-medium text-garage-text truncate">
-                        {p.jobNumber || <span className="font-normal text-gray-400">—</span>}
+                        {p.jobNumber || <span className="font-normal text-garage-text-muted">—</span>}
                       </span>
                       <span className="text-sm font-bold text-garage-text tabular-nums text-right whitespace-nowrap">
                         {formatMoney(p.amount)}
