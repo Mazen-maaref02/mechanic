@@ -61,6 +61,7 @@ export default function Dashboard() {
   })
   const [recent, setRecent] = useState<any[]>([])
   const [timeline, setTimeline] = useState<{ date: string; amount: number }[]>([])
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -103,6 +104,15 @@ export default function Dashboard() {
     </div>
   )
 
+  const selectedDay = selectedDate
+    ? (() => {
+        const d = timeline.find((x) => x.date === selectedDate)
+        if (!d) return null
+        const label = `${d.date.slice(8)}/${d.date.slice(5, 7)}/${d.date.slice(0, 4)}`
+        return { label, amount: d.amount }
+      })()
+    : null
+
   return (
     <div className="main p-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -137,34 +147,56 @@ export default function Dashboard() {
         <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Graph column */}
           <div className="lg:col-span-2">
-            <div className="text-xs text-garage-text-muted mb-2">
-              Total sur la période : <span className="font-bold text-garage-text">{formatMoney(timeline.reduce((s, d) => s + d.amount, 0))}</span>
-            </div>
+            {selectedDay ? (
+              <div className="text-xs text-garage-text-muted mb-2 flex items-center gap-2">
+                <span>
+                  Le <span className="font-semibold text-garage-text">{selectedDay.label}</span> :
+                  <span className="font-bold text-garage-text ml-1">{formatMoney(selectedDay.amount)}</span>
+                </span>
+                <button
+                  onClick={() => setSelectedDate(null)}
+                  className="text-[11px] underline underline-offset-2 hover:text-garage-text"
+                >
+                  revoir le total
+                </button>
+              </div>
+            ) : (
+              <div className="text-xs text-garage-text-muted mb-2">
+                Total sur la période : <span className="font-bold text-garage-text">{formatMoney(timeline.reduce((s, d) => s + d.amount, 0))}</span>
+              </div>
+            )}
             <div className="flex items-end gap-1 h-40 border-b border-garage-border pb-1">
               {timeline.map((d) => {
                 const max = Math.max(...timeline.map((x) => x.amount), 1)
                 const h = Math.round((d.amount / max) * 100)
+                const selected = d.date === selectedDate
                 return (
                   <div
                     key={d.date}
-                    className="flex-1 flex flex-col items-center justify-end h-full cursor-default"
+                    className="flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
                     title={`${d.date} — ${formatMoney(d.amount)}`}
+                    onClick={() => setSelectedDate(selected ? null : d.date)}
+                    role="button"
+                    aria-label={`${d.date} : ${formatMoney(d.amount)}`}
                   >
                     <div
-                      className="w-full bg-garage-orange/70 hover:bg-garage-orange rounded-t transition-colors"
+                      className={cn(
+                        'w-full rounded-t transition-all',
+                        selected
+                          ? 'bg-garage-orange ring-2 ring-garage-orange/40'
+                          : 'bg-garage-orange/70 hover:bg-garage-orange',
+                      )}
                       style={{ height: `${h}%`, minHeight: '2px' }}
                     />
                   </div>
                 )
               })}
             </div>
-            <div className="flex gap-1 mt-1">
-              {timeline.map((d) => (
-                <div key={d.date} className="flex-1 text-center text-[10px] text-garage-text-muted">
-                  {d.date.slice(8)}/{d.date.slice(5, 7)}
-                </div>
-              ))}
-            </div>
+            {selectedDay && (
+              <div className="text-[11px] text-garage-text-muted mt-1">
+                Cliquez sur une barre pour voir son revenu et sa date.
+              </div>
+            )}
           </div>
 
           {/* Single history column */}

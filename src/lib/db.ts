@@ -737,6 +737,36 @@ export async function getRevenueTimeline(daysBack = 14): Promise<DBResponse<{ da
 }
 
 /* ------------------------------------------------------------------ */
+/* Revenue summary (today / week / month / all-time, real payments)    */
+/* ------------------------------------------------------------------ */
+export async function getRevenueSummary(): Promise<DBResponse<{ day: number; week: number; month: number; total: number }>> {
+  if (!isSupabaseConfigured) return notConfigured()
+  const now = new Date()
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const weekStart = new Date(todayStart)
+  weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7)) // lundi
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const { data, error } = await supabase.from('payments').select('amount, payment_date')
+  if (error) return { data: null, error: err(error) }
+  let today = 0
+  let week = 0
+  let month = 0
+  let total = 0
+  ;((data as any[]) || []).forEach((p) => {
+    const amt = Number(p.amount || 0)
+    const d = new Date(p.payment_date)
+    total += amt
+    if (d >= todayStart) today += amt
+    if (d >= weekStart) week += amt
+    if (d >= monthStart) month += amt
+  })
+  return {
+    data: { day: round2(today), week: round2(week), month: round2(month), total: round2(total) },
+    error: null,
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Reports                                                            */
 /* ------------------------------------------------------------------ */
 export async function getReports({
