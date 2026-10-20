@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { ArrowUpRight, Calendar, CalendarDays, Clock } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { CalendarDays, Clock } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardSubtitle } from '@/components/ui/card'
 import { useToastMsg } from '@/components/ui/toaster'
-import { getRevenueCharts, type RevenuePoint } from '@/lib/db'
+import { getRevenueDetails, type RevenueDetailSeries, type RevenuePayment } from '@/lib/db'
 import { formatMoney } from '@/lib/currency'
 import { useT } from '@/lib/i18n'
 
@@ -10,80 +11,137 @@ function cn(...classes: (string | boolean | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ')
 }
 
-interface Series {
-  subtitle: string
-  total: number
-  points: RevenuePoint[]
+/* ---------- Ledger row : date · méthode · véhicule · montant ---------- */
+
+const METHOD_LABEL: Record<RevenuePayment['method'], string> = {
+  cash: 'Espèces',
+  transfer: 'Virement',
+  other: 'Autre',
 }
 
-/* Graphique en barres : le total s'affiche, et cliquer sur une barre
-   révèle la date (ou l'heure) et le revenu correspondant. Recliquer
-   (ou sur « total ») ramène l'affichage du total de la période. */
-function RevenueChart({ series, gap = 'gap-[2px]' }: { series: Series; gap?: string }) {
-  const [selKey, setSelKey] = useState<string | null>(null)
-  const points = series.points
-  const max = Math.max(...points.map((p) => p.amount), 1)
-  const sel = selKey ? points.find((p) => p.key === selKey) : null
+function fmtDayTime(iso: string) {
+  const d = new Date(iso)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
+const LEDGER_GRID = 'grid grid-cols-[auto_auto_1fr_auto] gap-x-2 sm:gap-x-4 items-baseline'
+
+function LedgerRow({ p }: { p: RevenuePayment }) {
+  const row = (
+    <div
+      className={cn(
+        LEDGER_GRID,
+        'px-3 py-3 transition-colors duration-150',
+      )}
+    >
+      <span className="text-xs text-garage-text-muted tabular-nums whitespace-nowrap min-w-[84px]">
+        {fmtDayTime(p.date)}
+      </span>
+      <span className="text-[11px] uppercase tracking-[0.08em] text-garage-text-muted whitespace-nowrap">
+        {METHOD_LABEL[p.method]}
+      </span>
+      <span className="text-sm text-garage-text font-medium truncate">
+        {p.jobNumber || <span className="text-gray-400 font-normal">—</span>}
+      </span>
+      <span className="text-sm font-bold text-garage-text tabular-nums text-right whitespace-nowrap">
+        {formatMoney(p.amount)}
+      </span>
+    </div>
+  )
+  if (!p.jobId) return row
   return (
-    <div>
-      <div className="text-xs text-garage-text-muted mb-2 min-h-[20px] flex items-center gap-2 flex-wrap">
-        {sel ? (
-          <>
-            <span>
-              <span className="font-semibold text-garage-text">{sel.detail}</span> :
-              <span className="font-bold text-garage-text ml-1">{formatMoney(sel.amount)}</span>
-            </span>
-            <button
-              onClick={() => setSelKey(null)}
-              className="text-[11px] underline underline-offset-2 hover:text-garage-text"
-            >
-              total de la période
-            </button>
-          </>
-        ) : (
-          <span>
-            Total : <span className="font-bold text-garage-text">{formatMoney(series.total)}</span>
-          </span>
+    <Link
+      to={`/job/${p.jobId}`}
+      className="block hover:bg-garage-bg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-garage-orange"
+    >
+      {row}
+    </Link>
+  )
+}
+
+/* ---------- Une feuille de grand-livre (période) ---------- */
+
+function Ledger({ series }: { series: RevenueDetailSeries }) {
+  return (
+    <div className="border border-garage-border rounded-lg overflow-hidden">
+      {/* En-tête de colonnes */}
+      <div
+        className={cn(
+          LEDGER_GRID,
+          'px-3 pb-2 pt-3 border-b border-garage-border bg-white',
+          'text-[10px] font-semibold uppercase tracking-[0.12em] text-garage-text-muted',
         )}
+      >
+        <span>Date</span>
+        <span>Méthode</span>
+        <span>Véhicule</span>
+        <span className="text-right">Montant</span>
       </div>
-      <div className={cn('flex items-end h-36 border-b border-garage-border pb-1', gap)}>
-        {points.map((p) => {
-          const h = Math.round((p.amount / max) * 100)
-          const selected = p.key === selKey
-          return (
-            <div
-              key={p.key}
-              className="flex-1 flex flex-col items-center justify-end h-full cursor-pointer"
-              title={`${p.detail} — ${formatMoney(p.amount)}`}
-              onClick={() => setSelKey(selected ? null : p.key)}
-              role="button"
-              aria-label={`${p.detail} : ${formatMoney(p.amount)}`}
-            >
-              <div
-                className={cn(
-                  'w-full rounded-t transition-all',
-                  selected
-                    ? 'bg-garage-orange ring-2 ring-garage-orange/40'
-                    : 'bg-garage-orange/70 hover:bg-garage-orange',
-                )}
-                style={{ height: `${h}%`, minHeight: '2px' }}
-              />
-            </div>
-          )
-        })}
+
+      {/* Petits comptables : un encaissement = une ligne, filets fins */}
+      {series.payments.length ? (
+        <div className="divide-y divide-garage-border">
+          {series.payments.map((p) => (
+            <LedgerRow key={p.id} p={p} />
+          ))}
+        </div>
+      ) : (
+        <div className="px-3 py-8 text-center text-sm text-garage-text-muted">
+          Aucun encaissement sur la période.
+        </div>
+      )}
+
+      {/* Dernière ligne : le total clôt la feuille, comme un réel de caisse */}
+      <div
+        className={cn(
+          LEDGER_GRID,
+          'px-3 py-3 border-t-2 border-garage-charcoal bg-garage-bg',
+        )}
+      >
+        <span className="text-xs font-semibold uppercase tracking-[0.12em] text-garage-text-muted">Total</span>
+        <span />
+        <span />
+        <span className="text-base font-bold text-garage-text tabular-nums text-right whitespace-nowrap">
+          {formatMoney(series.total)}
+        </span>
       </div>
-      <p className="text-[11px] text-garage-text-muted mt-1">
-        Cliquez sur une barre pour voir le revenu et sa date.
-      </p>
     </div>
   )
 }
 
+/* ---------- Ligne de marginaux : les 5 chiffres secondaires ---------- */
+
+function Marginalia({ series }: { series: RevenueDetailSeries }) {
+  const items = [
+    ['Encaissements', String(series.count)],
+    ['Paiement moyen', formatMoney(series.average)],
+    ['Le plus élevé', formatMoney(series.biggest)],
+    ['Espèces', formatMoney(series.cash)],
+    ['Virement', formatMoney(series.transfer)],
+  ]
+  return (
+    <dl className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-garage-text-muted">
+      {items.map(([label, value]) => (
+        <div key={label} className="flex items-baseline gap-1.5">
+          <dt className="uppercase tracking-[0.08em]">{label}</dt>
+          <dd className="tabular-nums font-semibold text-garage-text">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+/* ---------- Page ---------- */
+
 export default function Revenue() {
   const t = useT()
   const toast = useToastMsg()
-  const [data, setData] = useState<{ month: Series; week: Series; day: Series } | null>(null)
+  const [data, setData] = useState<{
+    month: RevenueDetailSeries
+    week: RevenueDetailSeries
+    day: RevenueDetailSeries
+  } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -92,7 +150,7 @@ export default function Revenue() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await getRevenueCharts()
+    const { data, error } = await getRevenueDetails()
     if (error) toast.error(error)
     setData(data || null)
     setLoading(false)
@@ -104,45 +162,65 @@ export default function Revenue() {
     </div>
   )
 
-  const sections: { title: string; subtitle: string; icon: React.ElementType; series: Series; gap?: string }[] = data
-    ? [
-        { title: 'Revenu du mois', subtitle: data.month.subtitle, icon: Calendar, series: data.month, gap: 'gap-[2px]' },
-        { title: 'Revenu de la semaine', subtitle: data.week.subtitle, icon: CalendarDays, series: data.week, gap: 'gap-1' },
-        { title: "Revenu du jour", subtitle: data.day.subtitle, icon: Clock, series: data.day, gap: 'gap-1' },
-      ]
-    : []
+  if (!data) {
+    return (
+      <div className="main p-6">
+        <Card className="p-8 text-center text-garage-text-muted">
+          Aucune donnée disponible.
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="main p-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-garage-text">Revenus</h1>
-          <p className="text-garage-text-muted text-sm">Paiements encaissés — mois, semaine et jour, à partir des données réelles.</p>
+      {/* Feuille du mois : le total du mois est le moment-graphique de la page */}
+      <section className="mb-10" aria-labelledby="revenue-month-heading">
+        <div className="border-l-4 border-garage-orange pl-5">
+          <p id="revenue-month-heading" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-garage-text-muted">
+            Total encaissé — {data.month.subtitle}
+          </p>
+          <p className="mt-1 text-4xl sm:text-5xl font-bold tracking-tight text-garage-text tabular-nums leading-none">
+            {formatMoney(data.month.total)}
+          </p>
+          <Marginalia series={data.month} />
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {sections.map((s) => (
-          <Card key={s.title}>
-            <CardHeader>
-              <CardTitle className="text-sm flex items-center gap-2">
-                <s.icon className="w-4 h-4" /> {s.title}
-              </CardTitle>
-              <CardSubtitle>{s.subtitle}</CardSubtitle>
-            </CardHeader>
-            <div className="p-4">
-              <RevenueChart series={s.series} gap={s.gap} />
+        <div className="mt-6">
+          <Ledger series={data.month} />
+        </div>
+      </section>
+
+      {/* Feuilles semaine et jour, en vis-à-vis */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <section aria-labelledby="revenue-week-heading">
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <h2 id="revenue-week-heading" className="flex items-center gap-2 text-sm font-semibold text-garage-text">
+                <CalendarDays className="w-4 h-4 text-garage-text-muted" />
+                Revenu de la semaine
+              </h2>
+              <CardSubtitle>{data.week.subtitle}</CardSubtitle>
             </div>
+            <Ledger series={data.week} />
+            <Marginalia series={data.week} />
           </Card>
-        ))}
-      </div>
+        </section>
 
-      {!data && (
-        <Card className="p-8 text-center text-garage-text-muted">
-          <ArrowUpRight className="w-6 h-6 mx-auto mb-2" />
-          Aucune donnée disponible.
-        </Card>
-      )}
+        <section aria-labelledby="revenue-day-heading">
+          <Card className="p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+              <h2 id="revenue-day-heading" className="flex items-center gap-2 text-sm font-semibold text-garage-text">
+                <Clock className="w-4 h-4 text-garage-text-muted" />
+                Revenu du jour
+              </h2>
+              <CardSubtitle>{data.day.subtitle}</CardSubtitle>
+            </div>
+            <Ledger series={data.day} />
+            <Marginalia series={data.day} />
+          </Card>
+        </section>
+      </div>
     </div>
   )
 }
