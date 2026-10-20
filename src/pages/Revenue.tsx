@@ -25,7 +25,28 @@ function fmtDayTime(iso: string) {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)} · ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+/* Regroupe les encaissements par jour : une ligne par date, avec son total */
+function groupPaymentsByDay(payments: RevenuePayment[]) {
+  const groups: { key: string; label: string; count: number; total: number }[] = []
+  const index = new Map<string, number>()
+  const p2 = (n: number) => String(n).padStart(2, '0')
+  for (const p of payments) {
+    const d = new Date(p.date)
+    const key = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`
+    const i = index.get(key)
+    if (i === undefined) {
+      index.set(key, groups.length)
+      groups.push({ key, label: `${p2(d.getDate())}/${p2(d.getMonth() + 1)}`, count: 1, total: p.amount })
+    } else {
+      groups[i].count += 1
+      groups[i].total += p.amount
+    }
+  }
+  return groups
+}
+
 const LEDGER_GRID = 'grid grid-cols-[auto_auto_1fr_auto] gap-x-2 sm:gap-x-4 items-baseline'
+const DAY_GRID = 'grid grid-cols-[auto_1fr_auto] gap-x-2 sm:gap-x-4 items-baseline'
 
 function LedgerRow({ p }: { p: RevenuePayment }) {
   const row = (
@@ -62,34 +83,77 @@ function LedgerRow({ p }: { p: RevenuePayment }) {
 
 /* ---------- Une feuille de grand-livre (période) ---------- */
 
-function Ledger({ series }: { series: RevenueDetailSeries }) {
+/* mode « days » : une ligne par jour avec le total de la journée
+   mode « payments » : une ligne par encaissement (feuille du jour)      */
+function Ledger({ series, mode }: { series: RevenueDetailSeries; mode: 'days' | 'payments' }) {
+  const dayGroups = mode === 'days' ? groupPaymentsByDay(series.payments) : []
   return (
     <div className="border border-garage-border rounded-lg overflow-hidden">
       {/* En-tête de colonnes */}
       <div
         className={cn(
-          LEDGER_GRID,
+          mode === 'days' ? DAY_GRID : LEDGER_GRID,
           'px-3 pb-2 pt-3 border-b border-garage-border bg-white',
           'text-[10px] font-semibold uppercase tracking-[0.12em] text-garage-text-muted',
         )}
       >
-        <span>Date</span>
-        <span>Méthode</span>
-        <span>Véhicule</span>
-        <span className="text-right">Montant</span>
+        {mode === 'days' ? (
+          <>
+            <span>Date</span>
+            <span>Encaissements</span>
+            <span className="text-right">Total du jour</span>
+          </>
+        ) : (
+          <>
+            <span>Date</span>
+            <span>Méthode</span>
+            <span>Véhicule</span>
+            <span className="text-right">Montant</span>
+          </>
+        )}
       </div>
 
-      {/* Petits comptables : un encaissement = une ligne, filets fins */}
-      {series.payments.length ? (
-        <div className="divide-y divide-garage-border">
-          {series.payments.map((p) => (
-            <LedgerRow key={p.id} p={p} />
-          ))}
-        </div>
+      {/* mode jours : 19/10 · 3 encaissements · total du jour, filets fins */}
+      {mode === 'days' ? (
+        dayGroups.length ? (
+          <div className="divide-y divide-garage-border">
+            {dayGroups.map((g) => (
+              <div
+                key={g.key}
+                className={cn(DAY_GRID, 'px-3 py-3 transition-colors duration-150')}
+                title={`Total du jour — ${g.label}`}
+              >
+                <span className="text-xs text-garage-text-muted tabular-nums whitespace-nowrap min-w-[84px]">
+                  {g.label}
+                </span>
+                <span className="text-[11px] uppercase tracking-[0.08em] text-garage-text-muted truncate">
+                  {g.count} {g.count === 1 ? 'encaissement' : 'encaissements'}
+                </span>
+                <span className="text-sm font-bold text-garage-text tabular-nums text-right whitespace-nowrap">
+                  {formatMoney(g.total)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="px-3 py-8 text-center text-sm text-garage-text-muted">
+            Aucun encaissement sur la période.
+          </div>
+        )
       ) : (
-        <div className="px-3 py-8 text-center text-sm text-garage-text-muted">
-          Aucun encaissement sur la période.
-        </div>
+        <>
+          {series.payments.length ? (
+            <div className="divide-y divide-garage-border">
+              {series.payments.map((p) => (
+                <LedgerRow key={p.id} p={p} />
+              ))}
+            </div>
+          ) : (
+            <div className="px-3 py-8 text-center text-sm text-garage-text-muted">
+              Aucun encaissement sur la période.
+            </div>
+          )}
+        </>
       )}
 
       {/* Dernière ligne : le total clôt la feuille, comme un réel de caisse */}
@@ -187,7 +251,7 @@ export default function Revenue() {
         </div>
 
         <div className="mt-6">
-          <Ledger series={data.month} />
+          <Ledger series={data.month} mode="days" />
         </div>
       </section>
 
@@ -202,7 +266,7 @@ export default function Revenue() {
               </h2>
               <CardSubtitle>{data.week.subtitle}</CardSubtitle>
             </div>
-            <Ledger series={data.week} />
+            <Ledger series={data.week} mode="days" />
             <Marginalia series={data.week} />
           </Card>
         </section>
@@ -216,7 +280,7 @@ export default function Revenue() {
               </h2>
               <CardSubtitle>{data.day.subtitle}</CardSubtitle>
             </div>
-            <Ledger series={data.day} />
+            <Ledger series={data.day} mode="payments" />
             <Marginalia series={data.day} />
           </Card>
         </section>
