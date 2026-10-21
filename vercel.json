@@ -8,7 +8,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-1sL12XlZvP4WC7AppN6G+i4a/VD9jY9ivU7GZbawFuI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://nflyoqkmltjbopnozubm.supabase.co wss://nflyoqkmltjbopnozubm.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' 'sha256-dmQaVKJwhTYtIn1vZypyuhmDwv5IV1O7Tb6csy+AfgI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://nflyoqkmltjbopnozubm.supabase.co wss://nflyoqkmltjbopnozubm.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
         },
         {
           "key": "X-Frame-Options",

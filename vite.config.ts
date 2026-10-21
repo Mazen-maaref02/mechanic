@@ -6,7 +6,7 @@ import tsconfigPaths from 'vite-tsconfig-paths'
 // CSP de test identique à vercel.json (validation locale avant déploiement)
 const csp = [
   "default-src 'self'",
-  "script-src 'self' 'sha256-1sL12XlZvP4WC7AppN6G+i4a/VD9jY9ivU7GZbawFuI='",
+  "script-src 'self' 'sha256-dmQaVKJwhTYtIn1vZypyuhmDwv5IV1O7Tb6csy+AfgI='",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
