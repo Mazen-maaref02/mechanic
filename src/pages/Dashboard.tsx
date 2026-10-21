@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -11,14 +11,14 @@ import {
   getSettings,
   type RevenueDetailSeries,
   type DashboardDelivery,
+  type RevenuePayment,
 } from '@/lib/db'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { cn } from '@/lib/utils'
-import {
-  CalendarDays, Banknote, Wrench, ReceiptText, Truck,
-  CarFront, FileText, Package, AlertTriangle,
-  MessageCircle, FolderOpen, CheckCircle2, PersonStanding,
-} from 'lucide-react'
+
+/* ═══════════════════════════════════════════════════════════════════
+   Brief d'atelier — direction « Technical Broadsheet »
+   Pas de cartes, pas d'arrondis, pas d'ombres : filets et espaces.
+   ═══════════════════════════════════════════════════════════════════ */
 
 type Period = 'day' | 'week' | 'month'
 
@@ -28,49 +28,40 @@ const PERIOD_LABEL: Record<Period, string> = {
   month: 'Mois',
 }
 
-/* Montant « métrique » style Stitch : 4 850,000 (sans suffixe, TND en légende) */
+const METHOD_LABEL: Record<RevenuePayment['method'], string> = {
+  cash: 'Espèces',
+  transfer: 'Virement',
+  other: 'Autre',
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  received: 'Réceptionnés',
+  awaiting_diagnosis: 'En diagnostic',
+  awaiting_approval: 'Devis à valider',
+  awaiting_parts: 'Attente pièces',
+  under_repair: 'En réparation',
+  testing: 'En essai',
+  finished: 'Terminés',
+  delivered: 'Livrés',
+}
+
 function fmtTND(n: number): string {
   return new Intl.NumberFormat('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 }).format(n ?? 0)
 }
 
-/* ------------------------------------------------------------------ */
-/* Carte KPI 2x2 « Precision Motorsport »                              */
-/* ------------------------------------------------------------------ */
-function Kpi({
-  label, icon: Icon, iconTile, children, footer,
-}: {
-  label: string
-  icon: React.ElementType
-  iconTile: string
-  children: React.ReactNode
-  footer?: React.ReactNode
-}) {
+/* Ligne à points de conduite (sommaire de journal) */
+function Leader({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
   return (
-    <div className="relative overflow-hidden p-3.5 rounded-xl border border-garage-border bg-garage-surface shadow-card flex flex-col justify-between">
-      <div className="flex items-start justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-garage-text-muted">{label}</span>
-        <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center shrink-0', iconTile)}>
-          <Icon className="w-[18px] h-[18px]" />
-        </div>
-      </div>
-      <div className="mt-2">{children}</div>
-      {footer}
-    </div>
-  )
-}
-
-function Metric({ value, caption, tone = 'text' }: { value: string; caption: string; tone?: 'primary' | 'text' | 'success' }) {
-  const toneClass = tone === 'primary' ? 'text-garage-orange' : tone === 'success' ? 'text-garage-success' : 'text-garage-text'
-  return (
-    <div>
-      <div className={cn('text-lg sm:text-xl font-bold tracking-tight tabular-nums leading-none', toneClass)}>{value}</div>
-      <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-garage-text-muted">{caption}</div>
+    <div className="flex items-baseline gap-2 py-1.5">
+      <span className="text-[13px] text-garage-text-muted whitespace-nowrap">{label}</span>
+      <span aria-hidden className="flex-1 min-w-4 border-b border-dotted border-garage-border" />
+      <span className={cn('broad-mono text-[13px] font-medium tabular-nums', valueClass ?? 'text-garage-text')}>{value}</span>
     </div>
   )
 }
 
 /* ------------------------------------------------------------------ */
-/* Page                                                                */
+/* Chargement (données réelles uniquement)                             */
 /* ------------------------------------------------------------------ */
 
 const EMPTY_STATS = {
@@ -143,314 +134,287 @@ export default function Dashboard() {
   if (loading || !data) {
     return (
       <div className="p-6 flex items-center justify-center min-h-[60vh]">
-        <p className="text-sm text-garage-text-muted">Chargement du tableau de bord…</p>
+        <p className="broad-mono text-[12px] text-garage-text-muted uppercase tracking-[0.15em]">Compositing…</p>
       </div>
     )
   }
 
   const dateLabel = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  const hourLabel = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  const timeLabel = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(now)
 
   const series = data.series
   const current = series[period]
-  const monthTotal = series.month?.total ?? 0
-  const pctOfMonth = period !== 'month' && monthTotal > 0
-    ? Math.min(100, Math.round(((current?.total ?? 0) / monthTotal) * 100))
-    : null
+  const split = current
+    ? {
+        cash: current.cash ?? 0,
+        transfer: current.transfer ?? 0,
+        other: (current.total ?? 0) - (current.cash ?? 0) - (current.transfer ?? 0),
+      }
+    : { cash: 0, transfer: 0, other: 0 }
+  const splitTotal = Math.max(0.001, split.cash + split.transfer + split.other)
 
   const counts = data.statusCounts ?? {}
-  const repCount = (counts['under_repair'] || 0) + (counts['testing'] || 0)
-  const liveCount = data.stats.underMaintenance
-  const totalAll = data.stats.totalCars + data.stats.delivered
-  const deliveredPct = totalAll > 0 ? Math.round((data.stats.delivered / totalAll) * 100) : 0
-
-  const visibleAlerts = (data.alerts ?? []).slice(0, 2)
+  const workshopRows = Object.entries(counts)
+    .filter(([st, n]) => n > 0 && st !== 'delivered' && st !== 'finished'
+      ? ['received', 'awaiting_diagnosis', 'awaiting_approval', 'awaiting_parts', 'under_repair', 'testing'].includes(st)
+      : false)
+    .map(([st, n]) => ({ label: STATUS_LABEL[st] || st, n }))
 
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 space-y-4">
-      {/* En-tête de bienvenue (nom du garage réel) */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="w-2 h-2 rounded-full bg-garage-success" />
-              <span className="text-[11px] font-semibold text-garage-success uppercase tracking-wider truncate">
-                {data.garageName || 'GaragePro'}
-              </span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-garage-text tracking-tight truncate">Tableau de bord</h1>
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-garage-text-muted">
-              <CalendarDays className="w-[15px] h-[15px] text-garage-orange" />
-              <span className="capitalize">{dateLabel}</span>
-              <span className="text-garage-border font-bold">·</span>
-              <span className="text-garage-blue font-semibold tabular-nums">{hourLabel}</span>
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-5 text-garage-text">
+      {/* ── Manchette ─────────────────────────────────────────────── */}
+      <header>
+        <div className="flex items-baseline justify-between gap-4 flex-wrap">
+          <p className="broad-mono text-[10px] uppercase tracking-[0.22em] text-garage-text-muted">
+            Édition du garage
+          </p>
+          <p className="broad-mono text-[10px] uppercase tracking-[0.18em] text-garage-text-muted tabular-nums">
+            {dateLabel} · {timeLabel}
+          </p>
+        </div>
+        <h1 className="broad-display text-3xl sm:text-4xl mt-1 leading-none">
+          {data.garageName || 'GaragePro'} <span className="italic text-garage-text-muted">— brief d'atelier</span>
+        </h1>
+        {/* Double filet de manchette */}
+        <div className="mt-3 border-t-[3px] border-garage-text" />
+        <div className="mt-[3px] border-t border-garage-border" />
+      </header>
+
+      {/* ── Un en-tête : le chiffre du jour ───────────────────────── */}
+      <section className="py-6 lg:py-8 flex flex-col lg:flex-row gap-x-12 gap-y-6">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <p className="broad-mono text-[11px] uppercase tracking-[0.2em] text-garage-text-muted">
+              Encaissé — {PERIOD_LABEL[period]}
             </p>
+            {/* Périodes : onglets texte soulignés */}
+            <div className="flex items-center gap-4" role="tablist">
+              {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
+                <button
+                  key={p}
+                  role="tab"
+                  aria-selected={period === p}
+                  onClick={() => setPeriod(p)}
+                  className={cn(
+                    'broad-mono text-[11px] uppercase tracking-[0.12em] pb-0.5 border-b-2 transition-colors',
+                    'focus-visible:outline focus-visible:outline-2 focus-visible:outline-garage-orange focus-visible:outline-offset-2',
+                    period === p
+                      ? 'text-garage-orange border-garage-orange font-semibold'
+                      : 'text-garage-text-muted border-transparent hover:text-garage-text',
+                  )}
+                >
+                  {PERIOD_LABEL[p]}
+                </button>
+              ))}
+            </div>
           </div>
-          <ThemeToggle />
+          {/* Le chiffre-manchette, énorme, en serif */}
+          <p className="broad-display text-[clamp(3.2rem,9vw,6rem)] leading-[0.95] mt-2 tabular-nums whitespace-nowrap">
+            {fmtTND(current?.total ?? 0)}
+          </p>
+          <p className="broad-mono text-[12px] text-garage-text-muted mt-2 tabular-nums">
+            TND · {current?.count ?? 0} encaissement{(current?.count ?? 0) > 1 ? 's' : ''}
+            {(current?.average ?? 0) > 0 && <> · moyenne <span className="text-garage-text">{fmtTND(current!.average)}</span></>}
+          </p>
         </div>
 
-        {/* Sélecteur de période — pilule segmented */}
-        <div className="grid grid-cols-3 p-1 rounded-xl bg-garage-subtle gap-1" role="tablist">
-          {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
-            <button
-              key={p}
-              role="tab"
-              aria-selected={period === p}
-              onClick={() => setPeriod(p)}
-              className={cn(
-                'py-1.5 text-center rounded-lg text-xs font-semibold transition-all active:scale-95',
-                period === p
-                  ? 'bg-garage-orange text-garage-on-primary shadow-sm'
-                  : 'text-garage-text-muted hover:text-garage-text',
-              )}
-            >
-              {PERIOD_LABEL[p]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* KPI Grid 2x2 */}
-      <div className="grid grid-cols-2 gap-3">
-        {/* KPI 1 : Encaissé (période sélectionnée) */}
-        <Kpi
-          label={`Encaissé · ${PERIOD_LABEL[period]}`}
-          icon={Banknote}
-          iconTile="bg-garage-orange/15 text-garage-orange"
-          footer={
-            current && (pctOfMonth !== null || period === 'month') ? (
-              <div className="mt-2.5">
-                {period === 'month' ? (
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-garage-orange">
-                    <span className="w-1.5 h-1.5 rounded-full bg-garage-orange animate-pulse" />
-                    {current.count} encaissement{current.count > 1 ? 's' : ''}
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-bold text-garage-success">+{pctOfMonth}% du mois</span>
-                      <span className="text-garage-text-muted">en {PERIOD_LABEL[period].toLowerCase()}</span>
-                    </div>
-                    <div className="w-full h-1 bg-garage-subtle rounded-full mt-1.5 overflow-hidden">
-                      <div className="h-full bg-garage-orange rounded-full" style={{ width: `${pctOfMonth ?? 0}%` }} />
-                    </div>
-                  </>
-                )}
+        {/* Marginalia : espèces / virement */}
+        <aside className="w-full lg:w-72 shrink-0 lg:border-l lg:border-garage-border lg:pl-8 flex flex-col justify-end">
+          <p className="broad-mono text-[10px] uppercase tracking-[0.2em] text-garage-text-muted mb-2">
+            Répartition du moyen
+          </p>
+          {/* Bandeau bicolre : orange = espèces, encre = virement */}
+          {current && current.total > 0 ? (
+            <>
+              <div className="flex h-2 w-full overflow-hidden" role="img" aria-label="Répartition espèces / virement">
+                <div className="bg-garage-orange" style={{ width: `${(split.cash / splitTotal) * 100}%` }} />
+                <div className="bg-garage-text/70" style={{ width: `${(split.transfer / splitTotal) * 100}%` }} />
+                <div className="bg-garage-border" style={{ width: `${(split.other / splitTotal) * 100}%` }} />
               </div>
-            ) : null
-          }
-        >
-          <Metric value={fmtTND(current?.total ?? 0)} caption="TND" tone="primary" />
-        </Kpi>
+              <div className="mt-2">
+                <Leader label="Espèces" value={fmtTND(split.cash)} valueClass="text-garage-orange" />
+                <Leader label="Virement" value={fmtTND(split.transfer)} />
+                {split.other > 0 && <Leader label="Autre" value={fmtTND(split.other)} />}
+              </div>
+            </>
+          ) : (
+            <p className="broad-display italic text-lg text-garage-text-muted">Aucun encaissement sur la période.</p>
+          )}
+        </aside>
+      </section>
+      <div className="border-t border-garage-border" />
 
-        {/* KPI 2 : En atelier */}
-        <Kpi
-          label="En atelier"
-          icon={Wrench}
-          iconTile="bg-garage-blue/15 text-garage-blue"
-          footer={
-            <div className="mt-2 flex items-center gap-1 flex-wrap">
-              <span className="px-1.5 py-0.5 rounded bg-garage-blue/20 text-garage-blue text-[10px] font-bold">
-                {data.stats.awaitingDiagnosis} Diag
-              </span>
-              <span className="px-1.5 py-0.5 rounded bg-garage-orange/20 text-garage-orange text-[10px] font-bold">
-                {repCount} Rep
-              </span>
-              <span className="px-1.5 py-0.5 rounded bg-garage-subtle text-garage-text-muted text-[10px] font-bold">
-                {data.stats.awaitingParts} Att. pièces
+      {/* ── Corps : deux colonnes ─────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-12 gap-y-8 pt-6">
+        {/* Gauche — le fil du jour */}
+        <div className="lg:col-span-7 space-y-8">
+          <section aria-label="Encaissements du jour">
+            <div className="flex items-baseline justify-between mb-1">
+              <h2 className="broad-mono text-[11px] font-semibold uppercase tracking-[0.2em]">Fil du jour</h2>
+              <span className="broad-mono text-[11px] text-garage-text-muted tabular-nums">
+                {series.day?.count ?? 0} opérations
               </span>
             </div>
-          }
-        >
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-extrabold tracking-tight text-garage-text">{liveCount}</span>
-            <span className="text-xs font-semibold text-garage-blue">véhicules</span>
-          </div>
-        </Kpi>
+            <div className="border-t border-garage-text/60" />
+            {series.day && series.day.payments.length > 0 ? (
+              <ul className="divide-y divide-garage-border">
+                {series.day.payments.map((p) => (
+                  <li key={p.id} className="grid grid-cols-[3.5rem_1fr_auto] items-baseline gap-x-3 py-2.5">
+                    <span className="broad-mono text-[11px] text-garage-text-muted tabular-nums">
+                      {new Date(p.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span className="min-w-0">
+                      {p.jobId ? (
+                        <Link to={`/job/${p.jobId}`} className="broad-display italic text-[17px] leading-tight hover:text-garage-orange transition-colors">
+                          {p.jobNumber || 'Dossier'}
+                        </Link>
+                      ) : (
+                        <span className="broad-display italic text-[17px] leading-tight text-garage-text-muted">
+                          {p.jobNumber || 'Dossier'}
+                        </span>
+                      )}
+                      <span className="broad-mono text-[10px] uppercase tracking-[0.14em] text-garage-text-muted ml-2">
+                        {METHOD_LABEL[p.method]}
+                      </span>
+                    </span>
+                    <span className="broad-mono text-sm font-semibold tabular-nums">{fmtTND(p.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="broad-display italic text-lg text-garage-text-muted py-4">
+                Carnet vierge — aucun encaissement aujourd'hui.
+              </p>
+            )}
+          </section>
 
-        {/* KPI 3 : À encaisser */}
-        <Kpi
-          label="À encaisser"
-          icon={ReceiptText}
-          iconTile="bg-garage-orange/20 text-garage-orange"
-          footer={
-            data.outstanding && data.outstanding.count > 0 ? (
-              <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-garage-orange">
-                <span className="w-1.5 h-1.5 rounded-full bg-garage-orange animate-pulse" />
-                {data.outstanding.count} dossier{data.outstanding.count > 1 ? 's' : ''} à régler
+          <section aria-label="Livraisons du jour">
+            <div className="flex items-baseline justify-between mb-1">
+              <h2 className="broad-mono text-[11px] font-semibold uppercase tracking-[0.2em]">Sorties du jour</h2>
+              <Link to="/finished" className="broad-mono text-[10px] uppercase tracking-[0.14em] text-garage-orange hover:underline">
+                Voir terminés
+              </Link>
+            </div>
+            <div className="border-t border-garage-text/60" />
+            {data.deliveries && data.deliveries.length > 0 ? (
+              <ul className="divide-y divide-garage-border">
+                {data.deliveries.map((d) => (
+                  <li key={d.id} className="flex items-baseline gap-x-3 py-2.5">
+                    <span className="min-w-0 flex-1">
+                      <Link to={`/job/${d.id}`} className="broad-display italic text-[17px] leading-tight hover:text-garage-orange transition-colors">
+                        {d.vehicle}
+                      </Link>
+                      <span className="broad-mono text-[10px] uppercase tracking-[0.14em] text-garage-text-muted ml-2">
+                        {d.plate}
+                      </span>
+                      <span className="block broad-mono text-[11px] text-garage-text-muted truncate">
+                        {d.jobNumber} · {d.customerName}
+                      </span>
+                    </span>
+                    <span className={cn('broad-mono text-sm font-semibold tabular-nums whitespace-nowrap', d.balance > 0.009 ? 'text-garage-danger' : 'text-garage-success')}>
+                      {d.balance > 0.009 ? `${fmtTND(d.balance)} dû` : 'Soldé'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="broad-display italic text-lg text-garage-text-muted py-4">Rien à livrer aujourd'hui.</p>
+            )}
+          </section>
+        </div>
+
+        {/* Droite — le carnet d'ordre */}
+        <aside className="lg:col-span-5 space-y-8">
+          <section aria-label="Carnet d'atelier">
+            <div className="flex items-baseline justify-between mb-1">
+              <h2 className="broad-mono text-[11px] font-semibold uppercase tracking-[0.2em]">Carnet d'atelier</h2>
+              <Link to="/maintenance" className="broad-mono text-[10px] uppercase tracking-[0.14em] text-garage-orange hover:underline">
+                Ouvrir
+              </Link>
+            </div>
+            <div className="border-t border-garage-text/60" />
+            {workshopRows.length > 0 ? (
+              <div className="py-1">
+                {workshopRows.map((r) => <Leader key={r.label} label={r.label} value={String(r.n)} />)}
+                <div className="mt-1 pt-1 border-t border-garage-border">
+                  <Leader label="Total en atelier" value={String(data.stats.underMaintenance)} valueClass="font-semibold" />
+                </div>
               </div>
             ) : (
-              <div className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-garage-success">
-                <span className="w-1.5 h-1.5 rounded-full bg-garage-success" />
-                Tout est encaissé
-              </div>
-            )
-          }
-        >
-          <Metric value={fmtTND(data.outstanding?.sum ?? 0)} caption="TND en attente" />
-        </Kpi>
-
-        {/* KPI 4 : Livrées */}
-        <Kpi
-          label="Livrées"
-          icon={Truck}
-          iconTile="bg-garage-success/15 text-garage-success"
-          footer={
-            <div className="w-full bg-garage-subtle h-1.5 rounded-full mt-2 overflow-hidden">
-              <div className="bg-garage-success h-full rounded-full" style={{ width: `${deliveredPct}%` }} />
-            </div>
-          }
-        >
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-xl font-extrabold tracking-tight text-garage-success">{data.stats.delivered}</span>
-            <span className="text-xs text-garage-text-muted">{deliveredPct}% des dossiers</span>
-          </div>
-        </Kpi>
-      </div>
-
-      {/* Actions rapides */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-garage-text tracking-tight">Actions Rapides</h2>
-          <span className="text-[10px] font-bold text-garage-orange uppercase tracking-wider">Atelier Direct</span>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { label: 'Réception Express', href: '/register', icon: CarFront, tile: 'bg-garage-orange text-garage-on-primary shadow' },
-            { label: 'Factures', href: '/invoices', icon: FileText, tile: 'bg-garage-subtle text-garage-blue' },
-            { label: 'Stock Pièces', href: '/parts', icon: Package, tile: 'bg-garage-subtle text-garage-success' },
-            { label: 'Revenus', href: '/revenue', icon: Banknote, tile: 'bg-garage-subtle text-garage-orange' },
-          ].map((a) => {
-            const Icon = a.icon
-            return (
-              <Link
-                key={a.href}
-                to={a.href}
-                className="group flex flex-col items-center justify-center p-2.5 rounded-xl bg-garage-surface hover:bg-garage-subtle text-center transition-all active:scale-95 shadow-card"
-              >
-                <div className={cn('w-11 h-11 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform', a.tile)}>
-                  <Icon className="w-6 h-6" />
-                </div>
-                <span className="text-[11px] leading-tight font-semibold text-garage-text mt-2">{a.label}</span>
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Alerte stock (références au seuil) */}
-      {data.alerts && data.alerts.length > 0 && (
-        <Link
-          to="/parts"
-          className="flex items-center gap-3 p-3 rounded-xl bg-garage-danger-light text-garage-text shadow-card active:scale-[0.99] transition-transform"
-        >
-          <div className="shrink-0 w-8 h-8 rounded-lg bg-garage-danger text-white flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-garage-danger uppercase tracking-wider">Alerte Stock Immédiate</span>
-              <span className="text-[10px] font-bold text-garage-danger px-1.5 py-0.5 rounded bg-garage-danger-light ring-1 ring-garage-danger/30">
-                {data.alerts.length} référence{data.alerts.length > 1 ? 's' : ''}
-              </span>
-            </div>
-            <p className="text-xs text-garage-text-muted truncate mt-0.5">
-              {visibleAlerts.map((p) => `${p.name} (${p.quantity} · min ${p.min_stock})`).join(', ')}
-              {data.alerts.length > 2 && ` +${data.alerts.length - 2} autres`}
-            </p>
-          </div>
-        </Link>
-      )}
-
-      {/* Livraisons du jour */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-base font-bold text-garage-text tracking-tight">Livraisons du Jour</h2>
-            {data.deliveries && data.deliveries.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-garage-orange text-garage-on-primary text-[11px] font-bold flex items-center justify-center">
-                {data.deliveries.length}
-              </span>
+              <p className="broad-display italic text-lg text-garage-text-muted py-4">Atelier vide — bravo.</p>
             )}
-          </div>
-          <Link to="/finished" className="text-[11px] font-semibold text-garage-orange hover:underline">Voir terminés</Link>
-        </div>
+          </section>
 
-        {data.deliveries && data.deliveries.length > 0 ? (
-          data.deliveries.map((d) => {
-            const sold = d.balance <= 0.009
-            const waDigits = (d.customerPhone || '').replace(/\D/g, '')
-            const waText = encodeURIComponent(`Bonjour ${d.customerName}, votre ${d.vehicle} est prête. Merci de votre confiance.`)
-            return (
-              <div key={d.id} className="p-4 rounded-xl border border-garage-border bg-garage-surface shadow-card space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="px-2 py-0.5 rounded bg-garage-subtle text-garage-text font-mono font-bold text-[12px] shadow-sm">
-                        {d.plate}
-                      </div>
-                      <span
-                        className={cn(
-                          'px-2 py-0.5 rounded text-[11px] font-bold flex items-center gap-1',
-                          sold ? 'bg-garage-success/20 text-garage-success' : 'bg-garage-danger/20 text-garage-danger',
-                        )}
-                      >
-                        <span className={cn('w-1.5 h-1.5 rounded-full', sold ? 'bg-garage-success' : 'bg-garage-danger animate-pulse')} />
-                        {sold ? 'Solde réglé' : 'Solde à encaisser'}
-                      </span>
-                    </div>
-                    <h3 className="text-base font-bold text-garage-text mt-1.5 truncate">{d.vehicle}</h3>
-                    <p className="flex items-center gap-1.5 text-xs text-garage-text-muted">
-                      <PersonStanding className="w-[15px] h-[15px]" />
-                      <span className="text-garage-text font-semibold">{d.customerName}</span>
-                      <span className="text-garage-border">·</span>
-                      <span className="tabular-nums">{d.customerPhone || '—'}</span>
-                    </p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-garage-text-muted">
-                      {sold ? 'Solde TTC' : 'Reste à payer'}
-                    </span>
-                    <div className={cn('font-mono font-bold text-base tabular-nums', sold ? 'text-garage-success' : 'text-garage-danger')}>
-                      {fmtTND(sold ? d.total : d.balance)}
-                    </div>
-                    <span className="text-[10px] font-semibold text-garage-text-muted">TND</span>
-                  </div>
-                </div>
-                {/* Actions directes */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  {waDigits && (
-                    <a
-                      href={`https://wa.me/${waDigits}?text=${waText}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-garage-success text-white text-xs font-bold shadow-sm active:scale-95 transition-transform"
-                    >
-                      <MessageCircle className="w-[18px] h-[18px]" />
-                      <span>Aviser WhatsApp</span>
-                    </a>
-                  )}
-                  <Link
-                    to={`/job/${d.id}`}
-                    className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-garage-subtle hover:bg-garage-border/60 text-garage-text text-xs font-semibold active:scale-95 transition-all"
-                  >
-                    {sold
-                      ? <><FolderOpen className="w-[18px] h-[18px] text-garage-orange" /><span>Ouvrir le dossier</span></>
-                      : <><CheckCircle2 className="w-[18px] h-[18px] text-garage-orange" /><span>Encaisser le solde</span></>}
-                  </Link>
-                </div>
+          <section aria-label="À encaisser">
+            <div className="flex items-baseline justify-between mb-1">
+              <h2 className="broad-mono text-[11px] font-semibold uppercase tracking-[0.2em]">À encaisser</h2>
+              <Link to="/invoices" className="broad-mono text-[10px] uppercase tracking-[0.14em] text-garage-orange hover:underline">
+                Factures
+              </Link>
+            </div>
+            <div className="border-t border-garage-text/60" />
+            {data.outstanding && data.outstanding.count > 0 ? (
+              <div className="py-2">
+                <p className="broad-mono text-2xl font-semibold tabular-nums">{fmtTND(data.outstanding.sum)} <span className="text-[12px] font-normal text-garage-text-muted">TND</span></p>
+                <p className="broad-mono text-[11px] text-garage-text-muted mt-1">
+                  {data.outstanding.count} dossier{data.outstanding.count > 1 ? 's' : ''} avec solde ouvert
+                </p>
               </div>
-            )
-          })
-        ) : (
-          <div className="p-4 rounded-xl border border-garage-border bg-garage-surface shadow-card flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-garage-success shrink-0" />
-            <p className="text-sm text-garage-text-muted">
-              {data.deliveries ? 'Aucune livraison enregistrée aujourd\u2019hui.' : '—'}
-            </p>
-          </div>
-        )}
+            ) : (
+              <p className="broad-display italic text-lg text-garage-text-muted py-4">Caisse au complet.</p>
+            )}
+          </section>
+
+          <section aria-label="Alertes de stock">
+            <div className="flex items-baseline justify-between mb-1">
+              <h2 className="broad-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-garage-danger">Alerte stock</h2>
+              <Link to="/parts" className="broad-mono text-[10px] uppercase tracking-[0.14em] text-garage-orange hover:underline">
+                Stock
+              </Link>
+            </div>
+            <div className="border-t border-garage-danger/70" />
+            {data.alerts && data.alerts.length > 0 ? (
+              <div className="py-1">
+                {data.alerts.map((p) => (
+                  <Leader
+                    key={p.id}
+                    label={`${p.name}${p.reference ? ` · ${p.reference}` : ''}`}
+                    value={`${p.quantity} / min ${p.min_stock}`}
+                    valueClass="text-garage-danger"
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="broad-display italic text-lg text-garage-text-muted py-4">Rien sous le seuil.</p>
+            )}
+          </section>
+        </aside>
       </div>
+
+      {/* ── Colophon / actions ────────────────────────────────────── */}
+      <footer className="mt-10">
+        <div className="border-t border-garage-text" />
+        <div className="mt-[3px] border-t border-garage-border" />
+        <nav className="flex flex-wrap items-center gap-x-6 gap-y-2 py-4" aria-label="Raccourcis">
+          {[
+            { label: 'Réceptionner un véhicule', href: '/register' },
+            { label: 'Factures', href: '/invoices' },
+            { label: 'Stock & pièces', href: '/parts' },
+            { label: 'Grand livre des revenus', href: '/revenue' },
+            { label: 'Rapports', href: '/reports' },
+          ].map((a, i, arr) => (
+            <Fragment key={a.href}>
+              {i > 0 && <span aria-hidden className="broad-display text-garage-border">·</span>}
+              <Link to={a.href} className="broad-mono text-[11px] uppercase tracking-[0.14em] text-garage-text-muted hover:text-garage-orange transition-colors">
+                {a.label}
+              </Link>
+            </Fragment>
+          ))}
+        </nav>
+        <p className="broad-mono text-[10px] text-garage-text-muted uppercase tracking-[0.18em] pb-2">
+          GaragePro — l'atelier en un coup d'œil
+        </p>
+      </footer>
     </div>
   )
 }
