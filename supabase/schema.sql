@@ -39,6 +39,9 @@ create table garage_settings (
 
 insert into garage_settings (id) values (1) on conflict (id) do nothing;
 
+/* Toutes les politiques SELECT ci-dessous sont restreintes à « authenticated » :
+   les visiteurs anonymes (rôle anon de l'API REST) ne doivent lire AUCUNE table. */
+
 -- ----------------------------------------------------------------------------
 -- 3. Customers
 -- ----------------------------------------------------------------------------
@@ -225,6 +228,11 @@ create index idx_stock_movements_part on stock_movements(spare_part_id);
 
 -- ============================================================================
 -- Row Level Security (RLS)
+--
+-- IMPORTANT : toute politique SELECT porte « to authenticated » — le rôle
+-- anon de l'API REST n'a accès à AUCUNE table. Voir
+-- supabase/migrations/20261022000000_rls_anon_lockdown.sql (appliquée le
+-- 22/10/2026 sur la base de production).
 -- ============================================================================
 alter table profiles enable row level security;
 alter table garage_settings enable row level security;
@@ -256,7 +264,7 @@ $$;
 
 -- Profiles: users read their own; admins read/manage all.
 create policy profiles_select_own on profiles for select
-  using (auth.uid() = id);
+  to authenticated using (auth.uid() = id);
 create policy profiles_select_admin on profiles for select
   using (public.has_role(array['administrator']));
 create policy profiles_manage_admin on profiles for all
@@ -264,68 +272,68 @@ create policy profiles_manage_admin on profiles for all
   with check (public.has_role(array['administrator']));
 
 -- Garage settings: all authenticated can read; only admins write.
-create policy settings_select_all on garage_settings for select using (true);
+create policy settings_select_all on garage_settings for select to authenticated using (true);
 create policy settings_manage_admin on garage_settings for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'administrator'))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'administrator'));
 
 -- Customers: all authenticated read; receptionist & admin write.
-create policy customers_select_all on customers for select using (true);
+create policy customers_select_all on customers for select to authenticated using (true);
 create policy customers_manage_receptionist on customers for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')));
 
 -- Vehicles: all authenticated read; receptionist & admin write.
-create policy vehicles_select_all on vehicles for select using (true);
+create policy vehicles_select_all on vehicles for select to authenticated using (true);
 create policy vehicles_manage_receptionist on vehicles for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')));
 
 -- Repair jobs: all authenticated read; mechanics/receptionist/admin write.
-create policy repair_jobs_select_all on repair_jobs for select using (true);
+create policy repair_jobs_select_all on repair_jobs for select to authenticated using (true);
 create policy repair_jobs_manage_staff on repair_jobs for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','receptionist','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','receptionist','administrator')));
 
 -- Status history: all read; insert by the user performing the change.
-create policy status_history_select_all on status_history for select using (true);
+create policy status_history_select_all on status_history for select to authenticated using (true);
 create policy status_history_insert_staff on status_history for insert
   with check (auth.uid() = changed_by or exists (
     select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','receptionist','administrator')
   ));
 
 -- Repair tasks: all read; staff write.
-create policy repair_tasks_select_all on repair_tasks for select using (true);
+create policy repair_tasks_select_all on repair_tasks for select to authenticated using (true);
 create policy repair_tasks_manage_staff on repair_tasks for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','receptionist','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','receptionist','administrator')));
 
 -- Spare parts: all read; admin & mechanic write.
-create policy spare_parts_select_all on spare_parts for select using (true);
+create policy spare_parts_select_all on spare_parts for select to authenticated using (true);
 create policy spare_parts_manage_staff on spare_parts for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','administrator')));
 
 -- Repair parts: all read; staff write.
-create policy repair_parts_select_all on repair_parts for select using (true);
+create policy repair_parts_select_all on repair_parts for select to authenticated using (true);
 create policy repair_parts_manage_staff on repair_parts for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','receptionist','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','receptionist','administrator')));
 
 -- Payments: all read; receptionist & admin write.
-create policy payments_select_all on payments for select using (true);
+create policy payments_select_all on payments for select to authenticated using (true);
 create policy payments_manage_receptionist on payments for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')));
 
 -- Invoices: all read; receptionist & admin write.
-create policy invoices_select_all on invoices for select using (true);
+create policy invoices_select_all on invoices for select to authenticated using (true);
 create policy invoices_manage_receptionist on invoices for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('receptionist','administrator')));
 
 -- Stock movements: all read; admin & mechanic write.
-create policy stock_movements_select_all on stock_movements for select using (true);
+create policy stock_movements_select_all on stock_movements for select to authenticated using (true);
 create policy stock_movements_manage_staff on stock_movements for all
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','administrator')))
   with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('mechanic','administrator')));
