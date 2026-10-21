@@ -210,10 +210,6 @@ body {
 ::-webkit-scrollbar-track { @apply bg-transparent; }
 ::-webkit-scrollbar-thumb { @apply bg-garage-scrollbar rounded-full; }
 
-/* ---------- Dashboard « Brief d'atelier » (Technical Broadsheet) ---------- */
-.broad-display { font-family: 'Instrument Serif', Georgia, 'Times New Roman', serif; }
-.broad-mono { font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace; font-feature-settings: 'tnum' 1; letter-spacing: -0.01em; }
-
 /* ---------- Print (always light: black ink on white paper) ---------- */
 @media print {
   .no-print { display: none !important; }

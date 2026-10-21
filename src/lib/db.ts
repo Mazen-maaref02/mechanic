@@ -778,16 +778,6 @@ export async function getDashboardDeliveries(): Promise<DBResponse<DashboardDeli
   return { data: list, error: null }
 }
 
-/** Nombre de dossiers par statut (badges « X Diag / Y Rep » du tableau de bord) */
-export async function getDashboardStatusCounts(): Promise<DBResponse<Record<string, number>>> {
-  if (!isSupabaseConfigured) return { data: {}, error: null }
-  const { data, error } = await supabase.from('repair_jobs').select('status')
-  if (error) return { data: null, error: err(error) }
-  const counts: Record<string, number> = {}
-  for (const j of (data as any[]) ?? []) counts[j.status] = (counts[j.status] || 0) + 1
-  return { data: counts, error: null }
-}
-
 /* ------------------------------------------------------------------ */
 /* Revenue timeline (last N days, from real payments)                  */
 /* ------------------------------------------------------------------ */
