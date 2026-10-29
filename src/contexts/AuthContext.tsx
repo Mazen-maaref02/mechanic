@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { signIn, signUp, signOut, getCurrentUser, getSession, getProfile, listProfiles } from '@/lib/db'
+import { signIn, signOut, getCurrentUser, getSession, getProfile, listProfiles } from '@/lib/db'
 import type { Profile, UserRole } from '@/types'
 
 interface AuthContextType {
@@ -12,7 +12,6 @@ interface AuthContextType {
   loading: boolean
   configured: boolean
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
   refresh: () => Promise<void>
   isAdmin: boolean
@@ -83,11 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: res.error }
   }
 
-  const doSignUp = async (email: string, password: string, fullName?: string) => {
-    const res = await signUp(email, password, fullName)
-    return { error: res.error }
-  }
-
   const doSignOut = async () => {
     await signOut()
     setUser(null)
@@ -101,7 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isStaff = Boolean(role)
 
   return (
-    <AuthContext.Provider value={{ user, profile, role, session, loading, configured, signIn: doSignIn, signUp: doSignUp, signOut: doSignOut, refresh, isAdmin, isStaff }}>
+    <AuthContext.Provider value={{ user, profile, role, session, loading, configured, signIn: doSignIn, signOut: doSignOut, refresh, isAdmin, isStaff }}>
       {children}
     </AuthContext.Provider>
   )

@@ -1,21 +1,25 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Toaster } from '@/components/ui/toaster'
 import { Layout } from '@/components/layout/Layout'
 import Login from '@/pages/Login'
-import Dashboard from '@/pages/Dashboard'
-import RegisterCar from '@/pages/RegisterCar'
-import Maintenance from '@/pages/Maintenance'
-import FinishedCars from '@/pages/FinishedCars'
-import CarDetail from '@/pages/CarDetail'
-import CustomerDetail from '@/pages/CustomerDetail'
-import Customers from '@/pages/Customers'
-import Invoices from '@/pages/Invoices'
-import InvoicePrint from '@/pages/InvoicePrint'
-import PartsStock from '@/pages/PartsStock'
-import Reports from '@/pages/Reports'
-import Settings from '@/pages/Settings'
-import Revenue from '@/pages/Revenue'
+
+// Pages in lazy-loading: the code is split per route, the initial bundle
+// only contains the shell + Login. Functionality and routing are unchanged.
+const Dashboard = lazy(() => import('@/pages/Dashboard'))
+const RegisterCar = lazy(() => import('@/pages/RegisterCar'))
+const Maintenance = lazy(() => import('@/pages/Maintenance'))
+const FinishedCars = lazy(() => import('@/pages/FinishedCars'))
+const CarDetail = lazy(() => import('@/pages/CarDetail'))
+const CustomerDetail = lazy(() => import('@/pages/CustomerDetail'))
+const Customers = lazy(() => import('@/pages/Customers'))
+const Invoices = lazy(() => import('@/pages/Invoices'))
+const InvoicePrint = lazy(() => import('@/pages/InvoicePrint'))
+const PartsStock = lazy(() => import('@/pages/PartsStock'))
+const Reports = lazy(() => import('@/pages/Reports'))
+const Settings = lazy(() => import('@/pages/Settings'))
+const Revenue = lazy(() => import('@/pages/Revenue'))
 
 function RequireAuth({ children }: { children?: React.ReactNode }) {
   const { loading, configured, isStaff } = useAuth()
@@ -42,6 +46,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Toaster />
+      <Suspense fallback={null}>
       <Routes>
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
         <Route element={<RequireAuth />}>
@@ -63,6 +68,7 @@ export default function App() {
           </Route>
         </Route>
       </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

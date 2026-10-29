@@ -44,6 +44,15 @@ function err(e: unknown): string {
   return String(e)
 }
 
+/**
+ * Neutralise les caractères de syntaxe PostgREST (, % ( ) _) avant une
+ * interpolation dans .or()/.ilike : sans cela, un utilisateur peut modifier
+ * les filtres d'une recherche (injection de syntaxe).
+ */
+function orEscape(q: string): string {
+  return q.replace(/[(),%_]/g, ' ').trim()
+}
+
 /* ------------------------------------------------------------------ */
 /* Settings                                                           */
 /* ------------------------------------------------------------------ */
@@ -88,16 +97,6 @@ export async function signIn(email: string, password: string) {
   return { data, error: error ? err(error) : null }
 }
 
-export async function signUp(email: string, password: string, fullName?: string) {
-  if (!isSupabaseConfigured) return notConfigured()
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName || null } },
-  })
-  return { data, error: error ? err(error) : null }
-}
-
 export async function signOut() {
   if (!isSupabaseConfigured) return
   await supabase.auth.signOut()
@@ -120,16 +119,17 @@ export async function getSession() {
 /* ------------------------------------------------------------------ */
 export async function getCustomers(): Promise<DBResponse<Customer[]>> {
   if (!isSupabaseConfigured) return notConfigured()
-  const { data, error } = await supabase.from('customers').select('*').order('full_name', { ascending: true })
+  const { data, error } = await supabase.from('customers').select('*').order('full_name', { ascending: true }).limit(2000)
   return { data: data as Customer[] | null, error: error ? err(error) : null }
 }
 
 export async function searchCustomers(q: string): Promise<DBResponse<Customer[]>> {
   if (!isSupabaseConfigured) return notConfigured()
+  const safe = orEscape(q)
   const { data, error } = await supabase
     .from('customers')
     .select('*')
-    .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`)
+    .or(`full_name.ilike.%${safe}%,phone.ilike.%${safe}%`)
     .order('full_name', { ascending: true })
     .limit(20)
   return { data: data as Customer[] | null, error: error ? err(error) : null }
@@ -223,6 +223,7 @@ export async function getJobs({
       vehicles ( brand, model, color, license_plate )
     `)
     .order(sortBy, { ascending: sortDir === 'asc' })
+    .limit(2000)
 
   if (status) {
     const statuses = Array.isArray(status) ? status : [status]
@@ -230,8 +231,9 @@ export async function getJobs({
   }
   if (customerId) q = q.eq('customer_id', customerId)
   if (search) {
+    const safe = orEscape(search)
     q = q.or(
-      `job_number.ilike.%${search}%,reported_problem.ilike.%${search}%,assigned_mechanic.ilike.%${search}%,notes.ilike.%${search}%,customers.full_name.ilike.%${search}%,customers.phone.ilike.%${search}%,vehicles.brand.ilike.%${search}%,vehicles.model.ilike.%${search}%,vehicles.license_plate.ilike.%${search}%`
+      `job_number.ilike.%${safe}%,reported_problem.ilike.%${safe}%,assigned_mechanic.ilike.%${safe}%,notes.ilike.%${safe}%,customers.full_name.ilike.%${safe}%,customers.phone.ilike.%${safe}%,vehicles.brand.ilike.%${safe}%,vehicles.model.ilike.%${safe}%,vehicles.license_plate.ilike.%${safe}%`
     )
   }
 
@@ -466,7 +468,7 @@ export async function deleteJobPart(id: string, sparePartId: string | null, quan
 /* ------------------------------------------------------------------ */
 export async function getInventory(): Promise<DBResponse<SparePart[]>> {
   if (!isSupabaseConfigured) return notConfigured()
-  const { data, error } = await supabase.from('spare_parts').select('*').order('name', { ascending: true })
+  const { data, error } = await supabase.from('spare_parts').select('*').order('name', { ascending: true }).limit(2000)
   return { data: data as SparePart[] | null, error: error ? err(error) : null }
 }
 
@@ -562,6 +564,7 @@ export async function getUnpaidJobs(): Promise<DBResponse<any[]>> {
       repair_parts ( quantity, unit_price )
     `)
     .order('entry_date', { ascending: false })
+    .limit(2000)
   if (error) return { data: null, error: err(error) }
   const list = ((data as any[]) ?? [])
     .map((j) => {
@@ -608,7 +611,7 @@ export async function deleteUnpaidEntry(jobId: string): Promise<DBResponse<null>
 /* ------------------------------------------------------------------ */
 export async function getInvoices(): Promise<DBResponse<Invoice[]>> {
   if (!isSupabaseConfigured) return notConfigured()
-  const { data, error } = await supabase.from('invoices').select('*').order('issue_date', { ascending: false })
+  const { data, error } = await supabase.from('invoices').select('*').order('issue_date', { ascending: false }).limit(2000)
   return { data: data as Invoice[] | null, error: error ? err(error) : null }
 }
 
@@ -655,8 +658,9 @@ export async function getDashboardStats(): Promise<DBResponse<DashboardStats>> {
       status, amount_paid, entry_date, additional_costs, discount,
       repair_tasks(labor_price),
       repair_parts(quantity, unit_price)
-    `),
-    supabase.from('payments').select('amount, payment_date'),
+    `).limit(2000),
+    // Borné au mois en cours : le calcul n'utilise que jour + mois
+    supabase.from('payments').select('amount, payment_date').gte('payment_date', monthStart),
   ])
 
   if (jobsRes.error) return { data: null, error: err(jobsRes.error) }
@@ -932,7 +936,7 @@ export async function getReports({
 /* ------------------------------------------------------------------ */
 export async function getStockMovements(partId?: string): Promise<DBResponse<StockMovement[]>> {
   if (!isSupabaseConfigured) return notConfigured()
-  let q = supabase.from('stock_movements').select('*').order('created_at', { ascending: false })
+  let q = supabase.from('stock_movements').select('*').order('created_at', { ascending: false }).limit(500)
   if (partId) q = q.eq('spare_part_id', partId)
   const { data, error } = await q
   return { data: data as StockMovement[] | null, error: error ? err(error) : null }
