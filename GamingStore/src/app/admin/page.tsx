@@ -18,7 +18,7 @@ export default async function AdminDashboardPage() {
     activeProductsRes,
     itemsRes,
   ] = await Promise.all([
-    supabase.from("orders").select("id, total_amount, currency, status, order_number, created_at").order("created_at", { ascending: false }),
+    supabase.from("orders").select("id, total_amount, currency, status, customer_name, created_at").order("created_at", { ascending: false }),
     supabase.from("digital_keys").select("id", { count: "exact" }).eq("status", "sold"),
     supabase.from("digital_keys").select("id", { count: "exact" }).eq("status", "reserved"),
     supabase.from("digital_keys").select("id", { count: "exact" }).eq("status", "available"),
@@ -47,14 +47,14 @@ export default async function AdminDashboardPage() {
 
   const cards = [
     {
-      label: "Revenue (TND)",
+      label: "Money received (TND)",
       value: formatPrice(revenueByCurrency.TND!.amount, "TND"),
       sub: `${revenueByCurrency.TND!.count} orders`,
       icon: CircleDollarSign,
       tone: "primary" as const,
     },
     {
-      label: "Revenue (USD)",
+      label: "Money received (USD)",
       value: formatPrice(revenueByCurrency.USD!.amount, "USD"),
       sub: `${revenueByCurrency.USD!.count} orders`,
       icon: TrendingUp,
@@ -102,7 +102,7 @@ export default async function AdminDashboardPage() {
           <OrdersMiniTable
             orders={(orders ?? []).slice(0, 8).map((o) => ({
               id: o.id,
-              order_number: o.order_number,
+              customerName: o.customer_name,
               status: o.status,
               total: formatPrice(o.total_amount, o.currency as CurrencyCode),
               created: new Date(o.created_at).toLocaleDateString("en-GB"),

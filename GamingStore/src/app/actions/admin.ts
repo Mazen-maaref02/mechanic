@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -222,6 +223,172 @@ export async function verifyPaymentAction(
 }
 
 // â”€â”€ Order lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/**
+ * ONE CLICK: the owner confirms he received the money off-site. The order is
+ * recorded as paid (amount + method counted as received), every item is marked
+ * delivered and the order goes straight to COMPLETED. Products with stored keys
+ * are auto-allocated; items without stored keys are marked delivered with a
+ * note (the owner sends those keys directly to the customer).
+ */
+export async function confirmPaymentAndCompleteAction(
+  orderId: string,
+  paymentMethod?: string | null,
+): Promise<ActionResult> {
+  const g = await guard("confirm-payment");
+  if (g.limited) return { ok: false, error: "Rate limited." };
+  const parsedId = z.uuid().safeParse(orderId);
+  if (!parsedId.success) return { ok: false, error: "Invalid order." };
+
+  let method: string | null = null;
+  if (paymentMethod) {
+    const m = paymentMethodSchema.safeParse(paymentMethod);
+    if (!m.success && paymentMethod !== "other") {
+      return { ok: false, error: "Unknown payment method." };
+    }
+    method = paymentMethod;
+  }
+
+  const admin = createAdminClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("id, status, payment_method, total_amount, currency")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return { ok: false, error: "Order not found." };
+  if (!["pending_payment", "payment_submitted", "payment_verified", "processing"].includes(order.status)) {
+    return { ok: false, error: "This order can no longer be confirmed." };
+  }
+
+  const paidVia = method ?? order.payment_method;
+
+  // Mark payment received first — the automatic key allocator requires a
+  // verified order. Availability of stored keys never blocks completion
+  // (the owner fulfills everything else manually).
+  await admin
+    .from("orders")
+    .update({ status: "payment_verified", payment_method: paidVia as never })
+    .eq("id", orderId);
+
+  try {
+    const { error: allocErr } = await admin.rpc("allocate_keys_for_order", { p_order_id: orderId });
+    if (!allocErr) queueKeyDeliveryEmail(orderId);
+  } catch {
+    // insufficient inventory / no keys — handled by the manual note below
+  }
+
+  const { data: items } = await admin
+    .from("order_items")
+    .select("id, delivery_status")
+    .eq("order_id", orderId);
+  const pending = (items ?? []).filter((i) => i.delivery_status !== "delivered");
+  if (pending.length > 0) {
+    await admin.from("deliveries").insert(
+      pending.map((i) => ({
+        order_item_id: i.id,
+        method: "manual",
+        content: "Delivered directly by the TuniXpay team — check your messages for the key/code.",
+      })),
+    );
+    await admin
+      .from("order_items")
+      .update({ delivery_status: "delivered", delivered_at: new Date().toISOString() })
+      .in("id", pending.map((i) => i.id));
+  }
+
+  await admin
+    .from("orders")
+    .update({ status: "completed", payment_method: paidVia as never })
+    .eq("id", orderId);
+
+  await admin.rpc("audit", {
+    p_action: "payment.received_completed",
+    p_entity_type: "order",
+    p_entity_id: orderId,
+    p_metadata: {
+      amount: order.total_amount,
+      currency: order.currency,
+      method: paidVia,
+      auto_delivered: pending.length,
+    },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+  return { ok: true, info: "Payment received — order completed and counted as paid." };
+}
+
+/**
+ * Undo a mistaken "Payment received" click. Returns the order to pending
+ * payment, removes delivery records and puts any auto-allocated keys back
+ * into stock. Confirmation is required in the UI before this runs.
+ */
+export async function revertPaymentAction(orderId: string): Promise<ActionResult> {
+  const g = await guard("revert-payment");
+  if (g.limited) return { ok: false, error: "Rate limited." };
+  const parsedId = z.uuid().safeParse(orderId);
+  if (!parsedId.success) return { ok: false, error: "Invalid order." };
+
+  const admin = createAdminClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (!order) return { ok: false, error: "Order not found." };
+  if (!["payment_verified", "processing", "completed"].includes(order.status)) {
+    return { ok: false, error: "Only a confirmed order can be reverted." };
+  }
+
+  const { data: items } = await admin
+    .from("order_items")
+    .select("id")
+    .eq("order_id", orderId);
+  const itemIds = (items ?? []).map((i) => i.id);
+
+  const { data: deliveries } = itemIds.length > 0
+    ? await admin
+        .from("deliveries")
+        .select("id, key_id")
+        .in("order_item_id", itemIds)
+    : { data: [] };
+  const rows = deliveries ?? [];
+
+  // Release automatically allocated keys back to inventory before deleting
+  // their delivery records.
+  const keyIds = rows.map((d) => d.key_id).filter((id): id is string => Boolean(id));
+  if (keyIds.length > 0) {
+    await admin
+      .from("digital_keys")
+      .update({ status: "available", sold_at: null, reserved_at: null, order_item_id: null })
+      .in("id", keyIds);
+  }
+  if (rows.length > 0) {
+    await admin.from("deliveries").delete().in("id", rows.map((d) => d.id));
+  }
+  if (itemIds.length > 0) {
+    await admin
+      .from("order_items")
+      .update({ delivery_status: "pending", delivered_at: null })
+      .in("id", itemIds);
+  }
+
+  await admin
+    .from("orders")
+    .update({ status: "pending_payment", payment_method: null })
+    .eq("id", orderId);
+
+  await admin.rpc("audit", {
+    p_action: "payment.reverted",
+    p_entity_type: "order",
+    p_entity_id: orderId,
+    p_metadata: { keys_released: keyIds.length },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin");
+  return { ok: true, info: "Payment reverted — order is pending again." };
+}
+
 export async function retryAutomaticDeliveryAction(orderId: string): Promise<ActionResult> {
   const g = await guard("retry-delivery");
   if (g.limited) return { ok: false, error: "Rate limited." };

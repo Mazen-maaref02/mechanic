@@ -17,7 +17,7 @@ const STATUS_VARIANT: Record<string, "success" | "warning" | "accent" | "danger"
 export const OrdersMiniTable = ({
   orders,
 }: {
-  orders: { id: string; order_number: string; status: string; total: string; created: string }[];
+  orders: { id: string; customerName: string; status: string; total: string; created: string }[];
 }) => {
   if (orders.length === 0) {
     return <EmptyState title="No orders yet" text="Orders appear here as customers check out." />;
@@ -26,7 +26,7 @@ export const OrdersMiniTable = ({
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Order</TableHead>
+          <TableHead>Client</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Total</TableHead>
           <TableHead className="text-right">Date</TableHead>
@@ -36,8 +36,8 @@ export const OrdersMiniTable = ({
         {orders.map((o) => (
           <TableRow key={o.id}>
             <TableCell>
-              <Link href={`/admin/orders?orderId=${o.id}`} className="font-mono text-xs hover:text-primary">
-                {o.order_number}
+              <Link href={`/admin/orders/${o.id}`} className="block max-w-[140px] truncate text-xs font-semibold hover:text-primary">
+                {o.customerName}
               </Link>
             </TableCell>
             <TableCell>

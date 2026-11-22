@@ -2,8 +2,15 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Wallet, CircleX, CircleCheck } from "lucide-react";
-import { setOrderStatusAction } from "@/app/actions/admin";
+import { Loader2, Wallet, CircleX, CircleCheck, Undo2 } from "lucide-react";
+import {
+  confirmPaymentAndCompleteAction,
+  revertPaymentAction,
+  setOrderStatusAction,
+} from "@/app/actions/admin";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const METHOD_LABELS: Record<string, string> = {
@@ -24,10 +31,9 @@ const METHODS: { value: string; label: string }[] = [
 
 /**
  * Off-site payment confirmation — the store never collects payments online.
- * The client picked his method at checkout; the team confirms with him
- * directly and records the payment here with ONE click — the method is
- * taken from the order automatically. Fulfillment happens in the
- * Fulfillment section.
+ * The client picked his method at checkout; ONE click records the payment,
+ * marks every item delivered and completes the order. A confirmed Revert
+ * button undoes a mistaken click.
  */
 export const OrderStatusControls = ({
   orderId,
@@ -40,23 +46,23 @@ export const OrderStatusControls = ({
 }) => {
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
-  // Fallback only for legacy orders placed before client-side method choice.
   const [method, setMethod] = React.useState<string>(currentMethod ?? "d17_edinar");
   const [message, setMessage] = React.useState<{ kind: "ok" | "err"; text: string } | null>(null);
+  const [confirmRevert, setConfirmRevert] = React.useState(false);
 
-  const run = async (key: string, nextStatus: string, withMethod?: string | null) => {
+  const run = async (key: string, fn: () => Promise<{ ok: boolean; info?: string; error?: string }>) => {
     setBusy(key);
     setMessage(null);
-    const res = await setOrderStatusAction(orderId, nextStatus, null, withMethod ?? undefined);
+    const res = await fn();
     setBusy(null);
     setMessage(res.ok ? { kind: "ok", text: res.info ?? "Done." } : { kind: "err", text: res.error ?? "Failed." });
     if (res.ok) router.refresh();
   };
 
   const canConfirm = status === "pending_payment" || status === "payment_submitted";
-  const canCancel = status !== "cancelled" && status !== "completed" && status !== "refunded";
+  const canRevert = status === "payment_verified" || status === "processing" || status === "completed";
 
-  if (!canConfirm && !canCancel) return null;
+  if (!canConfirm && !canRevert) return null;
 
   return (
     <div>
@@ -86,7 +92,9 @@ export const OrderStatusControls = ({
               </label>
             )}
             <button
-              onClick={() => run("paid", "payment_verified", currentMethod ?? method)}
+              onClick={() =>
+                run("paid", () => confirmPaymentAndCompleteAction(orderId, currentMethod ?? method))
+              }
               disabled={busy !== null}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-white shadow-glow hover:bg-primary-hover disabled:opacity-60"
             >
@@ -94,21 +102,32 @@ export const OrderStatusControls = ({
               Payment received
             </button>
           </div>
+          <p className="mt-2 text-[11px] text-foreground-dim">
+            Records the payment and completes the order immediately — stored keys are sent
+            automatically, other items are marked delivered for you to send directly.
+          </p>
+          <button
+            onClick={() => run("cancel", () => setOrderStatusAction(orderId, "cancelled"))}
+            disabled={busy !== null}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-foreground-muted hover:bg-surface-hover disabled:opacity-60"
+          >
+            {busy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CircleX className="h-4 w-4" />}
+            Cancel order
+          </button>
         </div>
       )}
-      {canCancel && (
+
+      {canRevert && (
         <button
-          onClick={() => run("cancel", "cancelled")}
+          onClick={() => setConfirmRevert(true)}
           disabled={busy !== null}
-          className={cn(
-            "flex w-full items-center justify-center gap-2 rounded-lg border border-border px-3 py-2.5 text-sm text-foreground-muted hover:bg-surface-hover disabled:opacity-60",
-            canConfirm && "mt-2",
-          )}
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2.5 text-sm font-medium text-amber-200 hover:bg-amber-400/20 disabled:opacity-60"
         >
-          {busy === "cancel" ? <Loader2 className="h-4 w-4 animate-spin" /> : <CircleX className="h-4 w-4" />}
-          Cancel order
+          <Undo2 className="h-4 w-4" />
+          Revert payment received
         </button>
       )}
+
       {message && (
         <p
           role={message.kind === "ok" ? "status" : "alert"}
@@ -121,6 +140,37 @@ export const OrderStatusControls = ({
           {message.text}
         </p>
       )}
+
+      <Dialog open={confirmRevert} onOpenChange={setConfirmRevert}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Revert payment received?</DialogTitle>
+            <DialogDescription>
+              The order will go back to “pending payment”, the delivery log will be cleared
+              and any keys automatically assigned will return to stock. Only do this if you
+              clicked by mistake.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setConfirmRevert(false)}
+              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-surface-hover"
+            >
+              Keep as is
+            </button>
+            <button
+              onClick={async () => {
+                setConfirmRevert(false);
+                await run("revert", () => revertPaymentAction(orderId));
+              }}
+              disabled={busy !== null}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black hover:bg-amber-400 disabled:opacity-60"
+            >
+              <Undo2 className="h-4 w-4" /> Yes, revert
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

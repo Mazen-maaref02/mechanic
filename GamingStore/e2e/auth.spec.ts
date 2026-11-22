@@ -18,7 +18,7 @@ test.describe("auth & access control (guest-first store)", () => {
   test("seeded admin can sign in and reach the dashboard", async ({ page }) => {
     await login(page, ADMIN, "/admin");
     await expect(page).toHaveURL(/\/admin/);
-    await expect(page.getByText(/revenue/i).first()).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/money received/i).first()).toBeVisible({ timeout: 20_000 });
   });
 
   test("admin sidebar lists all admin modules", async ({ page }) => {
