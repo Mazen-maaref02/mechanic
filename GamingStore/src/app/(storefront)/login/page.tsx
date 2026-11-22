@@ -15,6 +15,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const nextRaw = params.next;
   const next = (Array.isArray(nextRaw) ? nextRaw[0] : nextRaw) ?? null;
   const staffFlag = params.staff === "1";
+  const oauthError = params.error === "oauth";
 
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2 lg:py-20">
@@ -62,6 +63,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           account, with keys sent to the receiving email you choose.
         </p>
         <div className="mt-6">
+          {oauthError && (
+            <p role="alert" className="mb-4 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">
+              Google / Apple sign-in did not complete. Please try again or use your email and password.
+            </p>
+          )}
           <LoginForm nextPath={next} staffFlag={staffFlag} />
         </div>
       </main>

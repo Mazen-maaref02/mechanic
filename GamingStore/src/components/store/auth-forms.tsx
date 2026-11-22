@@ -6,6 +6,7 @@ import { useActionState } from "react";
 import { Loader2, LogIn, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { loginAction, registerAction } from "@/app/actions/auth";
 import type { ActionState } from "@/app/actions/auth";
+import { SocialDivider, SocialLoginButtons } from "@/components/store/social-login";
 
 const inputBase =
   "w-full rounded-lg border border-border bg-background-raised px-3 py-2.5 text-sm outline-none transition-colors focus:border-primary disabled:opacity-60";
@@ -34,6 +35,7 @@ export const LoginForm = ({ nextPath, staffFlag }: { nextPath: string | null; st
   const [showPassword, setShowPassword] = React.useState(false);
 
   return (
+    <>
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="next" value={nextPath ?? ""} />
       <label className="block">
@@ -76,6 +78,9 @@ export const LoginForm = ({ nextPath, staffFlag }: { nextPath: string | null; st
         </p>
       )}
     </form>
+      <SocialDivider />
+      <SocialLoginButtons />
+    </>
   );
 };
 
@@ -83,6 +88,7 @@ export const LoginForm = ({ nextPath, staffFlag }: { nextPath: string | null; st
 export const RegisterForm = () => {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(registerAction, {});
   return (
+    <>
     <form action={formAction} className="space-y-4">
       <label className="block">
         <span className="mb-1.5 block text-sm text-foreground-muted">Full name</span>
@@ -125,5 +131,8 @@ export const RegisterForm = () => {
         with your order number.
       </p>
     </form>
+      <SocialDivider />
+      <SocialLoginButtons />
+    </>
   );
 };
