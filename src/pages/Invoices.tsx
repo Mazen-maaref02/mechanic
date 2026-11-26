@@ -25,7 +25,7 @@ export default function Invoices() {
   const [invoices, setInvoices] = useState<any[]>([])
   const [unpaid, setUnpaid] = useState<any[]>([])
   const [payAmt, setPayAmt] = useState<Record<string, string>>({})
-  const [payMethod, setPayMethod] = useState<Record<string, string>>({})
+  const [payMethod, setPayMethod] = useState<Record<string, 'cash' | 'transfer' | 'other'>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [creating, setCreating] = useState(false)
@@ -61,7 +61,7 @@ export default function Invoices() {
     const amt = parseFloat(payAmt[job.id] ?? String(job.balance))
     if (!amt || amt <= 0) { toast.error('Entrez un montant valide.'); return }
     if (amt > job.balance + 0.009) { toast.error(`Montant supérieur au reste à payer (${formatMoney(job.balance)}).`); return }
-    const method = (payMethod[job.id] || 'cash') as any
+    const method = payMethod[job.id] || 'cash'
     const { error } = await recordPayment(job.id, amt, method, 'Paiement enregistré depuis la liste restent à payer', profile?.id ?? null)
     if (error) { toast.error(error); return }
     const { error: uErr } = await updateJob(job.id, { amount_paid: job.paid + amt })
@@ -202,12 +202,11 @@ export default function Invoices() {
                       <select
                         className="input w-16 py-1.5 text-xs shrink-0"
                         value={payMethod[j.id] ?? 'cash'}
-                        onChange={(e) => setPayMethod({ ...payMethod, [j.id]: e.target.value })}
+                        onChange={(e) => setPayMethod({ ...payMethod, [j.id]: e.target.value as 'cash' | 'transfer' | 'other' })}
                       >
                         <option value="cash">Espèces</option>
-                        <option value="card">Carte</option>
-                        <option value="check">Chèque</option>
-                        <option value="bank_transfer">Virement</option>
+                        <option value="transfer">Virement bancaire</option>
+                        <option value="other">Autre</option>
                       </select>
                       <Button size="sm" variant="primary" className="shrink-0" onClick={() => handleQuickPay(j)}>Encaisser</Button>
                       <button
@@ -260,12 +259,11 @@ export default function Invoices() {
                           <select
                             className="input w-24 py-1.5 text-xs"
                             value={payMethod[j.id] ?? 'cash'}
-                            onChange={(e) => setPayMethod({ ...payMethod, [j.id]: e.target.value })}
+                            onChange={(e) => setPayMethod({ ...payMethod, [j.id]: e.target.value as 'cash' | 'transfer' | 'other' })}
                           >
                             <option value="cash">Espèces</option>
-                            <option value="card">Carte</option>
-                            <option value="check">Chèque</option>
-                            <option value="bank_transfer">Virement</option>
+                            <option value="transfer">Virement bancaire</option>
+                            <option value="other">Autre</option>
                           </select>
                           <Button size="sm" variant="primary" onClick={() => handleQuickPay(j)}>Encaisser</Button>
                           <button

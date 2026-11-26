@@ -536,9 +536,14 @@ export async function recordPayment(
   createdBy: string | null
 ): Promise<DBResponse<Payment>> {
   if (!isSupabaseConfigured) return notConfigured()
+  // La DB n'accepte que cash / transfer / other (check constraint).
+  // Toute valeur historique/inattendue est rangée dans "other" plutôt
+  // que de faire échouer l'encaissement.
+  const safeMethod: PaymentMethod =
+    method === 'cash' || method === 'transfer' || method === 'other' ? method : 'other'
   const { data, error } = await supabase
     .from('payments')
-    .insert({ repair_job_id: jobId, amount, payment_method: method, note, created_by: createdBy })
+    .insert({ repair_job_id: jobId, amount, payment_method: safeMethod, note, created_by: createdBy })
     .select().single()
   return { data: data as Payment | null, error: error ? err(error) : null }
 }
