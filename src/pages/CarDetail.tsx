@@ -190,7 +190,6 @@ export default function CarDetail() {
             <Button size="sm" variant="primary" onClick={() => handleMarkFinished()} disabled={job.status === 'finished' || job.status === 'delivered'}>
               <CheckCircle2 className="w-4 h-4 mr-2" /> {t('detailMarkFinished')}
             </Button>
-            <Button size="sm" variant="secondary" onClick={() => navigate(`/invoice/new?job=${job.id}`)}><FileText className="w-4 h-4 mr-2" /> Facture</Button>
           </div>
         </CardHeader>
         <div className="p-6 border-t border-garage-border grid grid-cols-1 md:grid-cols-4 gap-4">

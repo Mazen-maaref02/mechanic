@@ -402,14 +402,12 @@ export default function RegisterCar() {
           <div className="p-4 space-y-4">
             <Textarea label={t('regReportedProblem')} rows={3} value={form.reported_problem} onChange={(e) => setForm({...form, reported_problem: e.target.value})} error={errors.reported_problem} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input label={t('regInitialDiagnosis')} placeholder="Diagnostic du mécanicien" value={form.initial_diagnosis} onChange={(e) => setForm({...form, initial_diagnosis: e.target.value})} />
               <Select label={t('regPriority')} value={form.priority} onChange={(e) => setForm({...form, priority: e.target.value as any})}>
                 {PRIORITIES.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
               </Select>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input label={t('regAssignedMechanic')} placeholder="Nom du mécanicien" value={form.assigned_mechanic} onChange={(e) => setForm({...form, assigned_mechanic: e.target.value})} />
-              <Input label={t('regExpectedCompletion')} type="datetime-local" value={form.expected_completion} onChange={(e) => setForm({...form, expected_completion: e.target.value})} />
             </div>
             <Input label={t('regEntryDate')} type="datetime-local" value={form.entry_date} onChange={(e) => setForm({...form, entry_date: e.target.value})} error={errors.entry_date} />
             <Textarea label={t('regNotes')} rows={2} placeholder="Notes supplémentaires" value={form.notes} onChange={(e) => setForm({...form, notes: e.target.value})} />
