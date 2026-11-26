@@ -1,12 +1,7 @@
 @import "tailwindcss";
 
-/* Dark mode via a .dark class on <html> (toggled by the theme switch) */
-@custom-variant dark (&:where(.dark, .dark *));
-
 /* ------------------------------------------------------------------ */
-/* Theme values — two palettes over the same semantic slots            */
-/* light : GaragePro classique (canvas clair, orange atelier)          */
-/* dark  : "Precision Dark" (canvas slate nuit, ambre)                  */
+/* Theme values — one palette (GaragePro classique, orange atelier)   */
 /* ------------------------------------------------------------------ */
 :root {
   --gb-bg: #f7f8fa;
@@ -37,37 +32,6 @@
 
   --gb-scrollbar: #cbd2dc;
   color-scheme: light;
-}
-
-.dark {
-  --gb-bg: #0b1326;
-  --gb-surface: #131b2e;
-  --gb-subtle: #1b2338;
-  --gb-border: #2d3449;
-  --gb-text: #dae2fd;
-  --gb-muted: #8e9ab5;
-
-  --gb-primary: #f59e0b;
-  --gb-primary-hover: #fbbf24;
-  --gb-on-primary: #472a00;
-  --gb-primary-soft: rgba(245, 158, 11, 0.15);
-
-  --gb-sidebar: #060e20;
-  --gb-sidebar-hover: #131b2e;
-
-  --gb-success: #34d399;
-  --gb-success-soft: rgba(52, 211, 153, 0.12);
-  --gb-warning: #fbbf24;
-  --gb-warning-soft: rgba(251, 191, 36, 0.12);
-  --gb-danger: #f87171;
-  --gb-danger-soft: rgba(248, 113, 113, 0.12);
-  --gb-info: #6cb6ff;
-  --gb-info-soft: rgba(108, 182, 255, 0.12);
-  --gb-purple: #c4a5ff;
-  --gb-purple-soft: rgba(196, 165, 255, 0.12);
-
-  --gb-scrollbar: #2d3449;
-  color-scheme: dark;
 }
 
 @theme inline {
@@ -115,12 +79,6 @@
   --shadow-sidebar: 0 4px 6px -1px rgb(0 0 0 / 0.10);
 }
 
-.dark {
-  --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.45), 0 1px 2px -1px rgb(0 0 0 / 0.35);
-  --shadow-card-hover: 0 10px 15px -3px rgb(0 0 0 / 0.45), 0 4px 6px -4px rgb(0 0 0 / 0.35);
-  --shadow-sidebar: 0 4px 6px -1px rgb(0 0 0 / 0.35);
-}
-
 /* ---------- Base ---------- */
 html { scroll-behavior: smooth; }
 body {
@@ -146,7 +104,6 @@ body {
 @utility btn {
   @apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-garage-orange focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
 }
-.dark .btn:focus-visible { --tw-ring-offset-color: var(--gb-bg); }
 @utility btn-primary { @apply btn bg-garage-orange text-garage-on-primary px-4 py-2.5 text-sm shadow-sm hover:bg-garage-orange-hover active:scale-95; }
 @utility btn-secondary { @apply btn bg-garage-surface border border-garage-border text-garage-text px-4 py-2.5 text-sm shadow-sm hover:bg-garage-subtle active:scale-95; }
 @utility btn-ghost { @apply btn text-garage-text-muted hover:bg-garage-subtle hover:text-garage-text px-3 py-2 text-sm; }
@@ -213,7 +170,7 @@ body {
 /* ---------- Print (always light: black ink on white paper) ---------- */
 @media print {
   .no-print { display: none !important; }
-  :root, .dark {
+  :root {
     --gb-bg: #ffffff;
     --gb-surface: #ffffff;
     --gb-subtle: #f2f4f7;

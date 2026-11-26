@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Menu, User, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useT } from '@/lib/i18n'
 
 interface TopBarProps {
@@ -30,7 +29,6 @@ export function TopBar({ user, role, onMenu }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <ThemeToggle />
         <span className="hidden md:block text-xs text-garage-text-muted">{user?.full_name || user?.email}</span>
         <span className="hidden lg:block text-xs text-garage-text-muted uppercase tracking-wider">{role || '—'}</span>
         <Button variant="ghost" size="sm" onClick={() => navigate('/login')} aria-label={t('logout')}>
